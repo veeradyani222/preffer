@@ -160,7 +160,15 @@ export class WizardController {
                 status: portfolio.status,
                 sections: portfolio.sections,
                 creditsUsed: portfolio.credits_used,
-                portfolio
+                portfolio,
+                themeOptions: [
+                    { name: 'Modern Minimal', id: 'modern_minimal', colors: ['#1a1a1a', '#4a4a4a', '#e5e5e5', '#ffffff'] },
+                    { name: 'Ocean Blue', id: 'ocean_blue', colors: ['#0f172a', '#1e3a8a', '#60a5fa', '#eff6ff'] },
+                    { name: 'Forest Green', id: 'forest_green', colors: ['#052e16', '#166534', '#4ade80', '#f0fdf4'] },
+                    { name: 'Luxury Gold', id: 'luxury_gold', colors: ['#271c19', '#43302b', '#d4b483', '#f9f5eb'] },
+                    { name: 'Sunset Purple', id: 'sunset_purple', colors: ['#2e1065', '#581c87', '#c084fc', '#faf5ff'] },
+                    { name: 'Berry Burst', id: 'berry_burst', colors: ['#15173D', '#982598', '#E491C9', '#F1E9E9'] }
+                ]
             };
 
             logger.response(200, { portfolioId: portfolio.id, step: portfolio.wizard_step });
@@ -313,8 +321,8 @@ export class WizardController {
             // Ensure hero and contact are always included (mandatory sections)
             if (!sectionTypes.includes('hero') || !sectionTypes.includes('contact')) {
                 logger.error('Hero and Contact sections are mandatory');
-                return res.status(400).json({ 
-                    error: 'Hero and Contact sections are required for every portfolio' 
+                return res.status(400).json({
+                    error: 'Hero and Contact sections are required for every portfolio'
                 });
             }
 

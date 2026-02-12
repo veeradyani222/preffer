@@ -9,54 +9,21 @@ interface SectionProps {
 }
 
 /**
- * FallbackSection - Renders unknown content types
- * Attempts to display content in a reasonable format
+ * FallbackSection - Displays for unknown section types
  */
 export function FallbackSection({ section, theme }: SectionProps) {
-    const content = section.content;
-
-    if (!content) return null;
-
-    // String content
-    if (typeof content === 'string') {
-        return (
-            <p style={{ color: theme.colors.text.secondary }}>
-                {content}
+    return (
+        <div
+            className="p-6 text-center"
+            style={{
+                backgroundColor: theme.colors.lightest,
+                borderRadius: theme.radius.medium,
+                border: `1px solid ${theme.colors.medium}`,
+            }}
+        >
+            <p style={{ color: theme.colors.dark }}>
+                Unsupported section type: <code>{section.type}</code>
             </p>
-        );
-    }
-
-    // Object with simple values
-    if (typeof content === 'object' && !Array.isArray(content)) {
-        const entries = Object.entries(content).filter(([_, v]) => v);
-        if (entries.length === 0) return null;
-
-        return (
-            <div className="space-y-2">
-                {entries.map(([key, value]) => (
-                    <p key={key} style={{ color: theme.colors.text.secondary }}>
-                        <span className="font-medium capitalize" style={{ color: theme.colors.text.primary }}>
-                            {key.replace(/_/g, ' ')}:
-                        </span>{' '}
-                        {String(value)}
-                    </p>
-                ))}
-            </div>
-        );
-    }
-
-    // Array - list items
-    if (Array.isArray(content)) {
-        return (
-            <ul className="space-y-2">
-                {content.map((item, idx) => (
-                    <li key={idx} style={{ color: theme.colors.text.secondary }}>
-                        {typeof item === 'string' ? item : JSON.stringify(item)}
-                    </li>
-                ))}
-            </ul>
-        );
-    }
-
-    return null;
+        </div>
+    );
 }

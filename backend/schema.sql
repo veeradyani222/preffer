@@ -43,9 +43,15 @@ CREATE TABLE IF NOT EXISTS portfolios (
     -- Content
     sections JSONB NOT NULL DEFAULT '[]'::jsonb,
     theme VARCHAR(50) NOT NULL DEFAULT 'minimal',
+    color_scheme JSONB DEFAULT NULL,
     
     -- Features
     has_ai_manager BOOLEAN NOT NULL DEFAULT false,
+    ai_manager_name VARCHAR(120) DEFAULT NULL,
+    ai_manager_personality VARCHAR(60) DEFAULT NULL,
+    ai_manager_has_portfolio_access BOOLEAN NOT NULL DEFAULT false,
+    ai_manager_finalized BOOLEAN NOT NULL DEFAULT false,
+    ai_manager_custom_instructions TEXT DEFAULT NULL,
     
     -- Status
     status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
@@ -65,6 +71,35 @@ CREATE TABLE IF NOT EXISTS portfolios (
 CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id);
 CREATE INDEX IF NOT EXISTS idx_portfolios_slug ON portfolios(slug);
 CREATE INDEX IF NOT EXISTS idx_portfolios_status ON portfolios(status);
+
+-- ============================================
+-- ASSISTANT CHATS (OWNER WORKSPACE)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS assistant_chats (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    context_type VARCHAR(20) NOT NULL CHECK (context_type IN ('portfolio', 'ai_manager')),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_chats_user_id ON assistant_chats(user_id);
+CREATE INDEX IF NOT EXISTS idx_assistant_chats_portfolio_id ON assistant_chats(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_assistant_chats_updated_at ON assistant_chats(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS assistant_chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_chat_messages_chat_id ON assistant_chat_messages(chat_id);
 
 -- ============================================
 -- CREDIT TRANSACTIONS (audit log)

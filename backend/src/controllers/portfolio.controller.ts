@@ -2,8 +2,139 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/authenticate';
 import PortfolioService from '../services/portfolio.service.new';
 import PortfolioChatService from '../services/portfolio-chat.service';
+import { generateWithFallback } from '../services/gemini.service';
+
+interface PublicChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
 
 class PortfolioController {
+    private static normalizeSegment(value: string): string {
+        return value
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    private static buildPortfolioContext(portfolio: any): string {
+        const lines: string[] = [];
+        const wizardData = portfolio?.wizard_data || {};
+
+        lines.push(`Portfolio Name: ${wizardData.name || portfolio.name || 'Untitled'}`);
+        if (wizardData.profession || portfolio.profession) {
+            lines.push(`Profession/Industry: ${wizardData.profession || portfolio.profession}`);
+        }
+        if (wizardData.description || portfolio.description) {
+            lines.push(`Description: ${wizardData.description || portfolio.description}`);
+        }
+
+        const sections = Array.isArray(portfolio?.sections) ? portfolio.sections : [];
+        sections
+            .filter((s: any) => s?.content && Object.keys(s.content).length > 0)
+            .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+            .forEach((section: any, idx: number) => {
+                lines.push(`Section ${idx + 1} (${section.type} - ${section.title}): ${JSON.stringify(section.content)}`);
+            });
+
+        return lines.join('\n');
+    }
+
+    private static extractJsonFromAi(text: string): any {
+        try {
+            return JSON.parse(text);
+        } catch {
+            // Continue to fallback parsing
+        }
+
+        const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlockMatch) {
+            try {
+                return JSON.parse(codeBlockMatch[1].trim());
+            } catch {
+                // Continue to fallback parsing
+            }
+        }
+
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch {
+                const fixedJson = this.attemptJsonFix(jsonMatch[0]);
+                if (fixedJson) {
+                    try {
+                        return JSON.parse(fixedJson);
+                    } catch {
+                        // Continue to error
+                    }
+                }
+            }
+        }
+
+        throw new Error(`Failed to parse JSON from AI response: ${text.substring(0, 120)}...`);
+    }
+
+    private static attemptJsonFix(json: string): string | null {
+        try {
+            let fixed = json.trim();
+
+            if (fixed.match(/:\s*"[^"]*$/)) {
+                const lastCompleteMatch = fixed.match(/(.*"[^"]*"[,\s\]}]*)/);
+                if (lastCompleteMatch) {
+                    fixed = lastCompleteMatch[1];
+                }
+            }
+
+            let braceCount = 0;
+            let bracketCount = 0;
+            let inString = false;
+            let escapeNext = false;
+
+            for (let i = 0; i < fixed.length; i++) {
+                const char = fixed[i];
+
+                if (escapeNext) {
+                    escapeNext = false;
+                    continue;
+                }
+
+                if (char === '\\') {
+                    escapeNext = true;
+                    continue;
+                }
+
+                if (char === '"') {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString) {
+                    if (char === '{') braceCount++;
+                    if (char === '}') braceCount--;
+                    if (char === '[') bracketCount++;
+                    if (char === ']') bracketCount--;
+                }
+            }
+
+            fixed = fixed.replace(/,\s*$/, '');
+
+            while (bracketCount > 0) {
+                fixed += ']';
+                bracketCount--;
+            }
+            while (braceCount > 0) {
+                fixed += '}';
+                braceCount--;
+            }
+
+            JSON.parse(fixed);
+            return fixed;
+        } catch {
+            return null;
+        }
+    }
 
     // ============================================
     // MULTI-PORTFOLIO ENDPOINTS (NEW)
@@ -219,6 +350,169 @@ class PortfolioController {
         } catch (error) {
             console.error('Get portfolio by slug error:', error);
             res.status(500).json({ error: 'Failed to get portfolio' });
+        }
+    }
+
+    /**
+     * Get public AI manager metadata by slug and manager name
+     */
+    static async getPublicAiManager(req: Request, res: Response) {
+        try {
+            const slug = req.params.slug as string;
+            const aiManagerName = req.params.aiManagerName as string;
+            const portfolio = await PortfolioService.getBySlug(slug);
+
+            if (!portfolio) {
+                return res.status(404).json({ error: 'Portfolio not found' });
+            }
+
+            const routeName = PortfolioController.normalizeSegment(aiManagerName);
+            const storedName = PortfolioController.normalizeSegment(portfolio.ai_manager_name || '');
+            const isValidManager =
+                portfolio.has_ai_manager &&
+                portfolio.ai_manager_finalized &&
+                !!portfolio.ai_manager_name &&
+                routeName === storedName;
+
+            if (!isValidManager) {
+                return res.status(404).json({ error: 'AI manager not found' });
+            }
+
+            res.json({
+                portfolio: {
+                    id: portfolio.id,
+                    slug: portfolio.slug,
+                    name: portfolio.name,
+                    theme: portfolio.theme,
+                    color_scheme: (portfolio as any).color_scheme,
+                    wizard_data: portfolio.wizard_data || {}
+                },
+                aiManager: {
+                    name: portfolio.ai_manager_name,
+                    personality: portfolio.ai_manager_personality || 'professional'
+                },
+                greeting: `Hi, I'm ${portfolio.ai_manager_name}. I'm the AI manager for ${portfolio.name}. Ask me anything about this portfolio.`
+            });
+        } catch (error) {
+            console.error('Get public AI manager error:', error);
+            res.status(500).json({ error: 'Failed to load AI manager' });
+        }
+    }
+
+    /**
+     * Chat with public AI manager
+     */
+    static async chatWithPublicAiManager(req: Request, res: Response) {
+        try {
+            const slug = req.params.slug as string;
+            const aiManagerName = req.params.aiManagerName as string;
+            const { message, history = [] } = req.body as { message?: string; history?: PublicChatMessage[] };
+
+            if (!message || !message.trim()) {
+                return res.status(400).json({ error: 'message is required' });
+            }
+
+            const portfolio = await PortfolioService.getBySlug(slug);
+            if (!portfolio) {
+                return res.status(404).json({ error: 'Portfolio not found' });
+            }
+
+            const routeName = PortfolioController.normalizeSegment(aiManagerName);
+            const storedName = PortfolioController.normalizeSegment(portfolio.ai_manager_name || '');
+            const isValidManager =
+                portfolio.has_ai_manager &&
+                portfolio.ai_manager_finalized &&
+                !!portfolio.ai_manager_name &&
+                routeName === storedName;
+
+            if (!isValidManager) {
+                return res.status(404).json({ error: 'AI manager not found' });
+            }
+
+            const safeHistory = Array.isArray(history)
+                ? history
+                    .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
+                    .slice(-12)
+                : [];
+
+            const conversation = safeHistory
+                .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
+                .join('\n');
+
+            const context = PortfolioController.buildPortfolioContext(portfolio);
+            const customInstructions = (portfolio as any).ai_manager_custom_instructions?.trim();
+
+            const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
+
+Rules:
+- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
+- Answer only based on the portfolio context below.
+- If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
+- Keep responses concise, helpful, and professional.
+- Never reveal raw JSON.
+${customInstructions ? '- Strictly follow the owner custom instructions included below.' : ''}
+
+Portfolio Context:
+${context}
+
+Owner Custom Instructions:
+${customInstructions || 'None'}
+
+Recent Conversation:
+${conversation || 'No prior conversation.'}
+
+Visitor's latest message:
+${message.trim()}
+
+Return ONLY valid JSON in this exact shape:
+{
+  "reply": "your response as ${portfolio.ai_manager_name}"
+}`;
+
+            const maxAttempts = 3;
+            let parsedReply: string | null = null;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    const maxTokens = 700 + (attempt - 1) * 200;
+                    const text = await generateWithFallback(
+                        { temperature: 0.5, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+                        prompt
+                    );
+
+                    const parsed = PortfolioController.extractJsonFromAi(text);
+                    const candidate =
+                        typeof parsed?.reply === 'string'
+                            ? parsed.reply
+                            : (typeof parsed?.message === 'string' ? parsed.message : '');
+
+                    if (candidate && candidate.trim()) {
+                        parsedReply = candidate.trim();
+                        break;
+                    }
+
+                    throw new Error('Failed to parse JSON from AI response: missing reply field');
+                } catch (error: any) {
+                    const isJsonError = error?.message?.includes('Failed to parse JSON');
+                    if (isJsonError && attempt < maxAttempts) {
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+
+            const finalReply = parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
+
+            res.json({
+                reply: finalReply,
+                aiManager: {
+                    name: portfolio.ai_manager_name,
+                    personality: portfolio.ai_manager_personality || 'professional'
+                }
+            });
+        } catch (error) {
+            console.error('Public AI manager chat error:', error);
+            res.status(500).json({ error: 'Failed to chat with AI manager' });
         }
     }
 

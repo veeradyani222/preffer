@@ -33,29 +33,29 @@ export function FaqSection({ section, theme }: SectionProps) {
                     className="overflow-hidden"
                     style={{
                         borderRadius: theme.radius.medium,
-                        border: `1px solid ${theme.colors.border}`,
+                        border: `1px solid ${theme.colors.medium}`,
                     }}
                 >
                     <button
                         onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
                         className="w-full flex items-center justify-between p-4 text-left font-medium transition-colors"
                         style={{
-                            backgroundColor: openIndex === idx ? theme.colors.surface : theme.colors.background,
-                            color: theme.colors.text.primary,
+                            backgroundColor: openIndex === idx ? theme.colors.lightest : theme.colors.lightest,
+                            color: theme.colors.darkest,
                         }}
                     >
                         {item.question}
                         <LuChevronDown
                             className={`transition-transform ${openIndex === idx ? 'rotate-180' : ''}`}
-                            style={{ color: theme.colors.text.muted }}
+                            style={{ color: theme.colors.medium }}
                         />
                     </button>
                     {openIndex === idx && (
                         <div
                             className="p-4 pt-0"
                             style={{
-                                backgroundColor: theme.colors.surface,
-                                color: theme.colors.text.secondary,
+                                backgroundColor: theme.colors.lightest,
+                                color: theme.colors.dark,
                             }}
                         >
                             {item.answer}

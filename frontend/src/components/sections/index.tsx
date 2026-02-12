@@ -11,27 +11,47 @@
 import { ReactElement } from 'react';
 import { Theme } from '@/themes';
 import { PortfolioSection, SectionType } from '@/types/section.types';
-import { normalizeSection } from './normalizeSection';
 
-// Import all section components
-import { TextBlock } from './TextBlock';
-import { TagsGrid } from './TagsGrid';
-import { CardGrid } from './CardGrid';
-import { Timeline } from './Timeline';
-import { Testimonials } from './Testimonials';
+// Import all 14 section components
+import { HeroSection } from './HeroSection';
+import { AboutSection } from './AboutSection';
+import { ServicesSection } from './ServicesSection';
+import { SkillsSection } from './SkillsSection';
+import { ExperienceSection } from './ExperienceSection';
+import { ProjectsSection } from './ProjectsSection';
+import { TestimonialsSection } from './TestimonialsSection';
 import { ContactSection } from './ContactSection';
 import { FaqSection } from './FaqSection';
-import { FallbackSection } from './FallbackSection';
-import { StructuredSection } from './StructuredSection';
+import { PricingSection } from './PricingSection';
+import { TeamSection } from './TeamSection';
+import { MenuSection } from './MenuSection';
+import { AchievementsSection } from './AchievementsSection';
+import { EducationSection } from './EducationSection';
 
-// Export all components
-export { TextBlock, TagsGrid, CardGrid, Timeline, Testimonials, ContactSection, FaqSection, FallbackSection };
-export { StructuredSection };
+// Export all  components
+export {
+    HeroSection,
+    AboutSection,
+    ServicesSection,
+    SkillsSection,
+    ExperienceSection,
+    ProjectsSection,
+    TestimonialsSection,
+    ContactSection,
+    FaqSection,
+    PricingSection,
+    TeamSection,
+    MenuSection,
+    AchievementsSection,
+    EducationSection
+};
 
 // Props interface for all section components
 export interface SectionProps {
     section: PortfolioSection;
     theme: Theme;
+    aiManagerName?: string;
+    aiManagerUrl?: string; // Full URL path
 }
 
 type SectionComponent = (props: SectionProps) => ReactElement | null;
@@ -40,52 +60,45 @@ type SectionComponent = (props: SectionProps) => ReactElement | null;
  * Type → Component mapping
  */
 export const SECTION_COMPONENTS: Record<SectionType, SectionComponent> = {
-    // Wizard v2 section types
-    hero: StructuredSection,
-    about: StructuredSection,
-    services: StructuredSection,
-    skills: StructuredSection,
-    experience: StructuredSection,
-    projects: StructuredSection,
-    pricing: StructuredSection,
-    team: StructuredSection,
-    menu: StructuredSection,
-    achievements: StructuredSection,
-    education: StructuredSection,
-
-    // Shared/legacy section types
-    text_block: TextBlock,
-    tags: TagsGrid,
-    card_grid: CardGrid,
-    timeline: Timeline,
-    testimonials: Testimonials,
+    // All 14 wizard section types with dedicated components
+    hero: HeroSection,
+    about: AboutSection,
+    services: ServicesSection,
+    skills: SkillsSection,
+    experience: ExperienceSection,
+    projects: ProjectsSection,
+    testimonials: TestimonialsSection,
     contact: ContactSection,
     faq: FaqSection,
+    pricing: PricingSection,
+    team: TeamSection,
+    menu: MenuSection,
+    achievements: AchievementsSection,
+    education: EducationSection,
 };
 
 /**
  * Get component for a section type
- * Falls back to FallbackSection for unknown types
+ * Returns undefined for unknown types
  */
-export function getSectionComponent(type: string): SectionComponent {
-    return SECTION_COMPONENTS[type as SectionType] || FallbackSection;
+export function getSectionComponent(type: string): SectionComponent | undefined {
+    return SECTION_COMPONENTS[type as SectionType];
 }
 
 /**
  * Render a section with the appropriate component
  */
-export function renderSection(section: PortfolioSection, theme: Theme): ReactElement | null {
+export function renderSection(section: PortfolioSection, theme: Theme, aiManagerName?: string, aiManagerUrl?: string): ReactElement | null {
     const Component = getSectionComponent(section.type);
-    const normalized = normalizeSection(section);
-    return <Component section={ normalized } theme = { theme } />;
+    if (!Component) return null;
+    return <Component section={section} theme={theme} aiManagerName={aiManagerName} aiManagerUrl={aiManagerUrl} />;
 }
 
 /**
  * Check if a section has meaningful content
  */
 export function sectionHasContent(section: PortfolioSection): boolean {
-    const normalized = normalizeSection(section);
-    const content = normalized.content;
+    const content = section.content;
     if (!content) return false;
 
     if (Array.isArray(content)) return content.length > 0;

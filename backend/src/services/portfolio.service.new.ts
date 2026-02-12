@@ -13,7 +13,7 @@ import { CreditsService, CREDIT_COSTS, PLAN_LIMITS } from './credits.service';
 export type PortfolioType = 'individual' | 'company';
 export type PortfolioStatus = 'draft' | 'published';
 
-export type SectionType = 
+export type SectionType =
     | 'hero'
     | 'about'
     | 'services'
@@ -47,7 +47,13 @@ export interface Portfolio {
     description: string | null;
     sections: Section[];
     theme: string;
+    color_scheme?: { name: string; colors: string[] } | null;
     has_ai_manager: boolean;
+    ai_manager_name: string | null;
+    ai_manager_personality: string | null;
+    ai_manager_has_portfolio_access: boolean;
+    ai_manager_finalized: boolean;
+    ai_manager_custom_instructions: string | null;
     status: PortfolioStatus;
     wizard_step: number;
     wizard_data: any;
@@ -71,26 +77,30 @@ export interface ChatMessage {
 export interface WizardData {
     // Step 1: Type selection
     portfolioType?: PortfolioType;
-    
+
     // Step 2: About info
     name?: string;
     profession?: string;
     description?: string;
-    
+
     // Step 3: Section selection
     selectedSections?: SectionType[];
     recommendedSections?: SectionType[];
-    
+
     // Step 4: Section content
     sectionContents?: Record<string, any>;
     currentSectionIndex?: number;
-    
+
     // Step 5: AI Manager
     hasAiManager?: boolean;
-    
+    aiManagerName?: string;
+    aiManagerPersonality?: string;
+    aiManagerHasPortfolioAccess?: boolean;
+    aiManagerFinalized?: boolean;
+
     // Step 6: Theme
     theme?: string;
-    
+
     // Step 7: Slug
     slug?: string;
 }
@@ -117,7 +127,7 @@ export class PortfolioService {
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
         `;
-        
+
         const wizardData: WizardData = {
             portfolioType: input.portfolio_type,
         };
@@ -175,9 +185,9 @@ export class PortfolioService {
      * Update wizard data (for wizard progression)
      */
     static async updateWizard(
-        portfolioId: string, 
-        userId: string, 
-        step: number, 
+        portfolioId: string,
+        userId: string,
+        step: number,
         wizardData: Partial<WizardData>
     ): Promise<Portfolio> {
         // First get current wizard data
@@ -277,7 +287,11 @@ export class PortfolioService {
             // Calculate and deduct credits
             const cost = CreditsService.getPortfolioCost(hasAiManager);
             const wizardData = portfolio.wizard_data || {};
-            
+            const aiManagerName = hasAiManager ? wizardData.aiManagerName || null : null;
+            const aiManagerPersonality = hasAiManager ? wizardData.aiManagerPersonality || null : null;
+            const aiManagerHasPortfolioAccess = hasAiManager ? Boolean(wizardData.aiManagerHasPortfolioAccess) : false;
+            const aiManagerFinalized = hasAiManager ? Boolean(wizardData.aiManagerFinalized) : false;
+
             // Update portfolio to published
             const updateQuery = `
                 UPDATE portfolios 
@@ -289,9 +303,14 @@ export class PortfolioService {
                     profession = $4,
                     description = $5,
                     credits_used = $6,
+                    ai_manager_name = $7,
+                    ai_manager_personality = $8,
+                    ai_manager_has_portfolio_access = $9,
+                    ai_manager_finalized = $10,
+                    theme = $11,
                     wizard_step = 0,
                     updated_at = NOW()
-                WHERE id = $7
+                WHERE id = $12
                 RETURNING *
             `;
 
@@ -302,6 +321,11 @@ export class PortfolioService {
                 wizardData.profession || null,
                 wizardData.description || null,
                 cost,
+                aiManagerName,
+                aiManagerPersonality,
+                aiManagerHasPortfolioAccess,
+                aiManagerFinalized,
+                wizardData.theme || 'minimal',
                 portfolioId
             ]);
 
@@ -386,7 +410,13 @@ export class PortfolioService {
             description: row.description,
             sections: row.sections || [],
             theme: row.theme,
+            color_scheme: row.wizard_data.color_scheme, // Added mapping
             has_ai_manager: row.has_ai_manager,
+            ai_manager_name: row.ai_manager_name,
+            ai_manager_personality: row.ai_manager_personality,
+            ai_manager_has_portfolio_access: row.ai_manager_has_portfolio_access,
+            ai_manager_finalized: row.ai_manager_finalized,
+            ai_manager_custom_instructions: row.ai_manager_custom_instructions || null,
             status: row.status,
             wizard_step: row.wizard_step,
             wizard_data: row.wizard_data || {},

@@ -11,6 +11,10 @@ const router = express.Router();
 // Get portfolio by slug (for public pages)
 router.get('/slug/:slug', PortfolioController.getBySlug);
 
+// Public AI manager metadata and chat by slug + manager name
+router.get('/slug/:slug/ai-manager/:aiManagerName', PortfolioController.getPublicAiManager);
+router.post('/slug/:slug/ai-manager/:aiManagerName/chat', PortfolioController.chatWithPublicAiManager);
+
 // Check if slug is available
 router.get('/check-slug/:slug', PortfolioController.checkSlug);
 

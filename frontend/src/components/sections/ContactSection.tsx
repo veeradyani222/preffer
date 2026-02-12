@@ -31,229 +31,433 @@ export function ContactSection({ section, theme }: SectionProps) {
         : typeof content.links === 'string'
             ? content.links.split(',').map((s: string) => s.trim()).filter(Boolean)
             : [];
-    const linksObject: Record<string, string> =
-        content.links && typeof content.links === 'object' && !Array.isArray(content.links)
-            ? content.links
-            : {};
-    const linksItems: Array<{ label?: string; value?: string; href?: string; url?: string; name?: string; type?: string }> =
-        Array.isArray(content.links) && content.links.length > 0 && typeof content.links[0] === 'object'
-            ? content.links
-            : [];
+
+    // Normalize links array to handle both strings and objects
+    const normalizedLinks = Array.isArray(content.links)
+        ? content.links.filter(Boolean).map((item: any) => {
+            if (typeof item === 'string') return null; // handled separately or skip
+            return {
+                label: item.label || item.name || item.type || 'Link',
+                url: item.url || item.href || item.value || item.text
+            };
+        }).filter((item: any) => item && item.url)
+        : [];
+
     const heading = content.heading || content.title;
 
-    const hasLegacyContent =
-        legacyEmail ||
-        legacyPhone ||
-        legacyAddress ||
-        legacyHours ||
-        legacyWebsite ||
-        legacyGithub ||
-        legacyLinkedin ||
-        legacyTwitter ||
-        legacySocial;
-    const hasLinksContent =
-        linksArray.length > 0 ||
-        Object.keys(linksObject).length > 0 ||
-        linksItems.length > 0;
-    const rawStringContent = typeof content === 'string' ? content : '';
-    const hasContent = hasLegacyContent || hasLinksContent || !!rawStringContent;
-    if (!hasContent) return null;
+    const hasLegacyContacts = legacyEmail || legacyPhone;
+    const hasMetaInfo = legacyAddress || legacyHours;
+    const hasLinks = normalizedLinks.length > 0 || legacyGithub || legacyLinkedin || legacyTwitter || legacyWebsite;
 
+    if (!heading && !hasLegacyContacts && !hasMetaInfo && !hasLinks) return null;
+
+    // Modern Theme: Friendly, centered, with large icons
+    if (theme.variant === 'minimal') {
+        return (
+            <div
+                className="max-w-4xl mx-auto p-6 rounded-3xl text-center transition-all duration-300 hover:shadow-lg"
+                style={{
+                    backgroundColor: theme.colors.lightest,
+                    border: `1px solid ${theme.colors.medium}20`,
+                    boxShadow: theme.shadows.card
+                }}
+            >
+                {heading && (
+                    <h2
+                        className="text-2xl font-bold mb-3 tracking-tight"
+                        style={{
+                            color: theme.colors.darkest,
+                            fontFamily: theme.typography.fontFamilyHeading
+                        }}
+                    >
+                        {heading}
+                    </h2>
+                )}
+
+                {hasLegacyContacts && (
+                    <div className="flex flex-wrap justify-center gap-4 mb-4">
+                        {legacyEmail && (
+                            <a
+                                href={`mailto:${legacyEmail}`}
+                                className="flex items-center gap-2 px-5 py-2.5 font-medium transition-all duration-300 hover:scale-105 hover:-translate-y-1 shadow-md hover:shadow-xl"
+                                style={{
+                                    backgroundColor: theme.colors.darkest,
+                                    color: theme.colors.lightest,
+                                    border: `1px solid ${theme.colors.darkest}`,
+                                    borderRadius: '12px',
+                                    fontFamily: theme.typography.fontFamilyBody
+                                }}
+                            >
+                                <LuMail size={18} />
+                                {legacyEmail}
+                            </a>
+                        )}
+                        {legacyPhone && (
+                            <a
+                                href={`tel:${legacyPhone}`}
+                                className="flex items-center gap-2 px-5 py-2.5 font-medium transition-all duration-300 hover:scale-105 hover:-translate-y-1 shadow-sm hover:shadow-md"
+                                style={{
+                                    backgroundColor: 'transparent',
+                                    color: theme.colors.darkest,
+                                    borderRadius: '12px',
+                                    border: `1px solid ${theme.colors.medium}30`,
+                                    fontFamily: theme.typography.fontFamilyBody
+                                }}
+                            >
+                                <LuPhone size={18} />
+                                {legacyPhone}
+                            </a>
+                        )}
+                    </div>
+                )}
+
+                {hasMetaInfo && (
+                    <div className="flex flex-wrap justify-center gap-3 text-sm opacity-80 mb-4">
+                        {legacyAddress && (
+                            <div
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                                style={{
+                                    backgroundColor: `${theme.colors.medium}10`,
+                                    color: theme.colors.dark,
+                                    fontFamily: theme.typography.fontFamilyBody
+                                }}
+                            >
+                                <LuMapPin size={14} />
+                                {legacyAddress}
+                            </div>
+                        )}
+                        {legacyHours && (
+                            <div
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                                style={{
+                                    backgroundColor: `${theme.colors.medium}10`,
+                                    color: theme.colors.dark,
+                                    fontFamily: theme.typography.fontFamilyBody
+                                }}
+                            >
+                                <span className="font-medium">Hours:</span> {legacyHours}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Additional Links Row */}
+                {hasLinks && (
+                    <div
+                        className={`flex flex-wrap justify-center gap-3 ${hasLegacyContacts || hasMetaInfo ? 'mt-4 pt-4 border-t' : 'mt-2'}`}
+                        style={{ borderColor: `${theme.colors.medium}20` }}
+                    >
+                        {/* Standard Legacy Links */}
+                        {[
+                            { link: legacyGithub, label: 'GitHub' },
+                            { link: legacyLinkedin, label: 'LinkedIn' },
+                            { link: legacyTwitter, label: 'Twitter' },
+                            { link: legacyWebsite, label: 'Website' }
+                        ].map((item, i) => item.link && (
+                            <a
+                                key={`std-link-${i}`}
+                                href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                                className="px-4 py-1.5 text-sm rounded-full hover:bg-black hover:text-white transition-colors duration-300"
+                                style={{
+                                    backgroundColor: `${theme.colors.medium}10`,
+                                    color: theme.colors.darkest,
+                                    border: `1px solid ${theme.colors.medium}20`,
+                                    fontFamily: theme.typography.fontFamilyBody,
+                                    fontWeight: 500
+                                }}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                {item.label}
+                            </a>
+                        ))}
+
+                        {/* Normalized Object Links */}
+                        {normalizedLinks.map((item: any, idx: number) => (
+                            <a
+                                key={`link-item-${idx}`}
+                                href={item.url}
+                                className="px-4 py-1.5 text-sm rounded-full hover:bg-black hover:text-white transition-colors duration-300"
+                                style={{
+                                    backgroundColor: `${theme.colors.medium}10`,
+                                    color: theme.colors.darkest,
+                                    border: `1px solid ${theme.colors.medium}20`,
+                                    fontFamily: theme.typography.fontFamilyBody,
+                                    fontWeight: 500
+                                }}
+                                target={item.url.startsWith('http') ? '_blank' : undefined}
+                                rel={item.url.startsWith('http') ? 'noreferrer' : undefined}
+                            >
+                                {item.label}
+                            </a>
+                        ))}
+                    </div>
+                )}
+            </div >
+        );
+    }
+
+    // Elegant Theme: Minimalist typographical
+    if (theme.variant === 'elegant') {
+        return (
+            <div
+                className="max-w-3xl mx-auto py-8 px-8 text-center"
+                style={{
+                    border: `1px solid ${theme.colors.medium}40`,
+                    backgroundColor: 'transparent' // No background on Elegant as requested
+                }}
+            >
+                {heading && (
+                    <h3
+                        className="text-3xl md:text-4xl mb-6 font-serif italic"
+                        style={{
+                            color: theme.colors.darkest,
+                            fontFamily: theme.typography.fontFamilyHeading
+                        }}
+                    >
+                        {heading}
+                    </h3>
+                )}
+
+                <div className="flex flex-wrap justify-center gap-8 mb-6">
+                    {legacyEmail && (
+                        <a
+                            href={`mailto:${legacyEmail}`}
+                            className="group flex flex-col items-center gap-2"
+                        >
+                            <span
+                                className="p-3 rounded-full transition-colors group-hover:bg-stone-100"
+                                style={{ backgroundColor: `${theme.colors.medium}10` }}
+                            >
+                                <LuMail className="w-5 h-5" style={{ color: theme.colors.darkest }} />
+                            </span>
+                            <span
+                                className="text-base border-b border-transparent group-hover:border-current transition-all pb-0.5"
+                                style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
+                            >
+                                {legacyEmail}
+                            </span>
+                        </a>
+                    )}
+
+                    {[
+                        { link: legacyLinkedin, label: 'LinkedIn', icon: null },
+                        { link: legacyTwitter, label: 'Twitter', icon: null }
+                    ].map((item, i) => item.link && (
+                        <a
+                            key={i}
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener"
+                            className="group flex flex-col items-center gap-2"
+                        >
+                            <span
+                                className="p-3 rounded-full transition-colors group-hover:bg-stone-100"
+                                style={{ backgroundColor: `${theme.colors.medium}10` }}
+                            >
+                                <span className="w-5 h-5 flex items-center justify-center font-serif italic text-lg" style={{ color: theme.colors.darkest }}>
+                                    {item.label[0]}
+                                </span>
+                            </span>
+                            <span
+                                className="text-base border-b border-transparent group-hover:border-current transition-all pb-0.5"
+                                style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
+                            >
+                                {item.label}
+                            </span>
+                        </a>
+                    ))}
+                </div>
+
+                {/* Additional Links Row for Elegant - Compact */}
+                {hasLinks && (
+                    <div className="flex flex-wrap justify-center gap-4 mt-4">
+                        {normalizedLinks.map((item: any, idx: number) => (
+                            <a
+                                key={`link-item-${idx}`}
+                                href={item.url}
+                                className="text-sm border-b border-transparent hover:border-current transition-all pb-0.5"
+                                style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
+                                target={item.url.startsWith('http') ? '_blank' : undefined}
+                                rel={item.url.startsWith('http') ? 'noreferrer' : undefined}
+                            >
+                                {item.label}
+                            </a>
+                        ))}
+                    </div>
+                )}
+
+                {/* Simplified footer for elegant theme */}
+                {hasMetaInfo && (
+                    <div className="mt-6 text-xs opacity-50 tracking-widest uppercase font-serif" style={{ color: theme.colors.darkest }}>
+                        {legacyAddress || 'Get in touch'}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Techie Theme: Minimalist Action Grid
     return (
-        <div className="space-y-4">
+        <div
+            className="p-6 border-2 relative"
+            style={{
+                borderColor: theme.colors.darkest,
+                backgroundColor: theme.colors.lightest
+            }}
+        >
+            {/* Terminal Window Title */}
             {heading && (
-                <p className="font-medium" style={{ color: theme.colors.text.primary }}>
-                    {heading}
-                </p>
-            )}
-            <div className="flex flex-col sm:flex-row flex-wrap gap-4">
-            {legacyEmail && (
-                <a
-                    href={`mailto:${legacyEmail}`}
-                    className="inline-flex items-center gap-2 px-6 py-3 font-medium transition-colors"
-                    style={{
-                        backgroundColor: theme.colors.text.primary,
-                        color: theme.colors.background,
-                        borderRadius: theme.radius.medium,
-                    }}
-                >
-                    <LuMail size={18} />
-                    {legacyEmail}
-                </a>
-            )}
-            {legacyPhone && (
-                <a
-                    href={`tel:${legacyPhone}`}
-                    className="inline-flex items-center gap-2 px-6 py-3 font-medium transition-colors"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        color: theme.colors.text.primary,
-                        borderRadius: theme.radius.medium,
-                        border: `1px solid ${theme.colors.border}`,
-                    }}
-                >
-                    <LuPhone size={18} />
-                    {legacyPhone}
-                </a>
-            )}
-            {legacyAddress && (
                 <div
-                    className="inline-flex items-center gap-2 px-6 py-3"
-                    style={{ color: theme.colors.text.secondary }}
+                    className="absolute -top-3 left-6 px-3 font-mono text-xs font-bold uppercase tracking-widest"
+                    style={{
+                        backgroundColor: theme.colors.darkest,
+                        color: theme.colors.lightest
+                    }}
                 >
-                    <LuMapPin size={18} />
-                    {legacyAddress}
+                    {heading}
                 </div>
             )}
-            {legacyHours && (
-                <span
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                >
-                    <span className="font-medium" style={{ color: theme.colors.text.primary }}>
-                        Hours:
-                    </span>{' '}
-                    {legacyHours}
-                </span>
-            )}
-            {legacyWebsite && (
-                <a
-                    href={legacyWebsite}
-                    className="px-4 py-2 rounded-md text-sm underline"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    Website
-                </a>
-            )}
-            {legacyGithub && (
-                <a
-                    href={legacyGithub.startsWith('http') ? legacyGithub : `https://${legacyGithub}`}
-                    className="px-4 py-2 rounded-md text-sm underline"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    GitHub
-                </a>
-            )}
-            {legacyLinkedin && (
-                <a
-                    href={legacyLinkedin.startsWith('http') ? legacyLinkedin : `https://${legacyLinkedin}`}
-                    className="px-4 py-2 rounded-md text-sm underline"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    LinkedIn
-                </a>
-            )}
-            {legacyTwitter && (
-                <a
-                    href={legacyTwitter.startsWith('http') ? legacyTwitter : `https://twitter.com/${legacyTwitter.replace('@', '')}`}
-                    className="px-4 py-2 rounded-md text-sm underline"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    Twitter/X
-                </a>
-            )}
-            {legacySocial && (
-                <span
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                >
-                    <span className="font-medium" style={{ color: theme.colors.text.primary }}>
-                        Social:
-                    </span>{' '}
-                    {legacySocial}
-                </span>
-            )}
 
-            {linksArray.map((link, idx) => (
-                <span
-                    key={`link-${idx}`}
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                >
-                    {link}
-                </span>
-            ))}
-            {Object.entries(linksObject).map(([label, value]) => (
-                <span
-                    key={label}
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                >
-                    <span className="font-medium" style={{ color: theme.colors.text.primary }}>
-                        {label}:
-                    </span>{' '}
-                    {value}
-                </span>
-            ))}
-            {linksItems.map((item, idx) => (
-                <span
-                    key={`link-item-${idx}`}
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                >
-                    <span className="font-medium" style={{ color: theme.colors.text.primary }}>
-                        {item.label || item.name || item.type || 'Link'}:
-                    </span>{' '}
-                    {item.value || item.href || item.url || ''}
-                </span>
-            ))}
-            {rawStringContent && (
-                <span
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{
-                        backgroundColor: theme.colors.surface,
-                        border: `1px solid ${theme.colors.border}`,
-                        color: theme.colors.text.secondary,
-                    }}
-                >
-                    {rawStringContent}
-                </span>
-            )}
+            <div className="flex flex-col md:flex-row items-start gap-4 pt-2">
+                {/* Explicit Action Area */}
+                <div className="flex flex-col gap-3 w-full">
+                    <div className="flex flex-wrap gap-3 w-full">
+                        {/* Primary Contact Actions */}
+                        {legacyEmail && (
+                            <a
+                                href={`mailto:${legacyEmail}`}
+                                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
+                                style={{
+                                    borderColor: theme.colors.darkest,
+                                    color: theme.colors.darkest,
+                                    backgroundColor: 'transparent',
+                                    fontFamily: theme.typography.fontFamilyBody,
+                                }}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.backgroundColor = theme.colors.darkest;
+                                    e.currentTarget.style.color = theme.colors.lightest;
+                                    e.currentTarget.style.boxShadow = `3px 3px 0px 0px ${theme.colors.darkest}`;
+                                    e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = theme.colors.darkest;
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.transform = 'none';
+                                }}
+                            >
+                                <span>Email_Me</span>
+                                <LuMail size={14} />
+                            </a>
+                        )}
+                        {legacyPhone && (
+                            <a
+                                href={`tel:${legacyPhone}`}
+                                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
+                                style={{
+                                    borderColor: theme.colors.darkest,
+                                    color: theme.colors.darkest,
+                                    backgroundColor: 'transparent',
+                                    fontFamily: theme.typography.fontFamilyBody,
+                                }}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.backgroundColor = theme.colors.darkest;
+                                    e.currentTarget.style.color = theme.colors.lightest;
+                                    e.currentTarget.style.boxShadow = `3px 3px 0px 0px ${theme.colors.darkest}`;
+                                    e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = theme.colors.darkest;
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.transform = 'none';
+                                }}
+                            >
+                                <span>Call_Me</span>
+                                <LuPhone size={14} />
+                            </a>
+                        )}
+
+                        {/* Social & Other Links */}
+                        {[
+                            { link: legacyGithub, label: 'GitHub' },
+                            { link: legacyLinkedin, label: 'LinkedIn' },
+                            { link: legacyTwitter, label: 'Twitter' },
+                            { link: legacyWebsite, label: 'Website' }
+                        ].map((item, i) => item.link && (
+                            <a
+                                key={`std-link-${i}`}
+                                href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
+                                style={{
+                                    borderColor: theme.colors.darkest,
+                                    color: theme.colors.darkest,
+                                    backgroundColor: 'transparent',
+                                    fontFamily: theme.typography.fontFamilyBody,
+                                }}
+                                target="_blank"
+                                rel="noreferrer"
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.backgroundColor = theme.colors.darkest;
+                                    e.currentTarget.style.color = theme.colors.lightest;
+                                    e.currentTarget.style.boxShadow = `3px 3px 0px 0px ${theme.colors.darkest}`;
+                                    e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = theme.colors.darkest;
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.transform = 'none';
+                                }}
+                            >
+                                {item.label}
+                                <span className="text-[9px] opacity-70">↗</span>
+                            </a>
+                        ))}
+
+                        {/* Normalized Object Links */}
+                        {normalizedLinks.map((item: any, idx: number) => (
+                            <a
+                                key={`link-item-${idx}`}
+                                href={item.url}
+                                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
+                                style={{
+                                    borderColor: theme.colors.darkest,
+                                    color: theme.colors.darkest,
+                                    backgroundColor: 'transparent',
+                                    fontFamily: theme.typography.fontFamilyBody,
+                                }}
+                                target={item.url.startsWith('http') ? '_blank' : undefined}
+                                rel={item.url.startsWith('http') ? 'noreferrer' : undefined}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.backgroundColor = theme.colors.darkest;
+                                    e.currentTarget.style.color = theme.colors.lightest;
+                                    e.currentTarget.style.boxShadow = `3px 3px 0px 0px ${theme.colors.darkest}`;
+                                    e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = theme.colors.darkest;
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.transform = 'none';
+                                }}
+                            >
+                                {item.label}
+                                {item.url.startsWith('http') && <span className="text-[9px] opacity-70">↗</span>}
+                            </a>
+                        ))}
+                    </div>
+                </div>
             </div>
+
+            {/* Meta Info (Location, etc) */}
+            {hasMetaInfo && (
+                <div className="flex flex-wrap gap-4 mt-4 text-[10px] font-mono uppercase opacity-60 border-t pt-2" style={{ borderColor: theme.colors.dark, color: theme.colors.dark }}>
+                    {legacyAddress && <span>LOC: {legacyAddress}</span>}
+                    {legacyHours && <span>HRS: {legacyHours}</span>}
+                </div>
+            )}
         </div>
     );
 }

@@ -21,7 +21,13 @@ import {
     Building2, // Sleek icon for Company
     UserCircle, // Sleek icon for Individual
     ArrowUp,
-    AlertCircle
+    AlertCircle,
+    Target,
+    Crown,
+    Rocket,
+    PartyPopper,
+    Lock,
+    Bot // Imported Bot icon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -41,7 +47,15 @@ interface WizardData {
     sectionContents?: Record<string, any>;
     currentSectionIndex?: number;
     hasAiManager?: boolean;
+    aiManagerName?: string;
+    aiManagerPersonality?: string;
+    aiManagerHasPortfolioAccess?: boolean;
+    aiManagerFinalized?: boolean;
     theme?: string;
+    colorScheme?: {
+        name: string;
+        colors: string[];
+    };
     slug?: string;
 }
 
@@ -54,6 +68,7 @@ interface Section {
 }
 
 interface Portfolio {
+    slug: string;
     id: string;
     wizardStep: number;
     wizard_step: number;
@@ -87,10 +102,57 @@ const SECTION_LABELS: Record<string, { label: string; description: string; icon:
 };
 
 const THEMES = [
-    { id: 'default', name: 'Clean', description: 'Minimal', preview: 'bg-white border-stone-200' },
-    { id: 'dark', name: 'Dark', description: 'Modern', preview: 'bg-stone-900' },
-    { id: 'ocean', name: 'Ocean', description: 'Professional', preview: 'bg-blue-600' },
-    { id: 'forest', name: 'Forest', description: 'Natural', preview: 'bg-emerald-600' },
+    { id: 'minimal', name: 'Minimal', description: 'Clean and contemporary design', icon: Sparkles },
+    { id: 'techie', name: 'Techie', description: 'Bold and futuristic aesthetic', icon: Target },
+    { id: 'elegant', name: 'Elegant', description: 'Sophisticated and timeless', icon: Crown },
+];
+
+const COLOR_SCHEMES = [
+    {
+        id: 'warm',
+        name: 'Warm',
+        colors: ['#2D1810', '#8D6E63', '#D7CCC8', '#FFFCF9'] // Dark brown to almost white
+    },
+    {
+        id: 'forest',
+        name: 'Forest',
+        colors: ['#052010', '#1B4D3E', '#5D8C7B', '#F4FBF7'] // Deep green to mint white
+    },
+    {
+        id: 'ocean',
+        name: 'Ocean',
+        colors: ['#0B1120', '#1E3A8A', '#93C5FD', '#F8FAFC'] // Deep navy to ice white
+    },
+    {
+        id: 'luxury',
+        name: 'Luxury',
+        colors: ['#1E1B2E', '#5B21B6', '#DDD6FE', '#FAF9FE'] // Deep violet to lavender white
+    },
+    {
+        id: 'berry',
+        name: 'Berry',
+        colors: ['#2A0A18', '#BE185D', '#FBCFE8', '#FFF5F7'] // Deep wine to rose white
+    },
+    {
+        id: 'terra',
+        name: 'Terra',
+        colors: ['#2C1810', '#9A3412', '#FED7AA', '#FFF7ED'] // Deep rust to orange white
+    },
+    {
+        id: 'teal',
+        name: 'Teal',
+        colors: ['#042F2E', '#0D9488', '#99F6E4', '#F0FDFA'] // Deep teal to mint white
+    },
+    {
+        id: 'slate',
+        name: 'Slate',
+        colors: ['#0F172A', '#475569', '#CBD5E1', '#F8FAFC'] // Deep slate to ghost white
+    },
+    {
+        id: 'monochrome',
+        name: 'Monochrome',
+        colors: ['#000000', '#404040', '#A3A3A3', '#FAFAFA'] // Pitch black to pure white
+    }
 ];
 
 // Helper function to format content for display (fallback if backend doesn't provide displayContent)
@@ -114,7 +176,36 @@ function formatContentForDisplay(content: any): string {
                             if (typeof v === 'string' && v.length > 50) {
                                 lines.push(`${v}`);
                             } else if (Array.isArray(v)) {
-                                lines.push(`${sublabel}: ${(v as string[]).join(', ')}`);
+                                const primitiveValues = v.filter(val => typeof val !== 'object' || val === null);
+                                const objectValues = v.filter(val => typeof val === 'object' && val !== null);
+
+                                if (primitiveValues.length > 0) {
+                                    lines.push(`${sublabel}: ${primitiveValues.join(', ')}`);
+                                }
+
+                                if (objectValues.length > 0) {
+                                    lines.push(`${sublabel}:`);
+                                    objectValues.forEach((nested: any, nestedIdx: number) => {
+                                        const nestedTitle = nested.name || nested.title || nested.question || nested.role || `Item ${nestedIdx + 1}`;
+                                        const details = Object.entries(nested)
+                                            .filter(([nestedKey, nestedValue]) =>
+                                                nestedKey !== 'name' &&
+                                                nestedKey !== 'title' &&
+                                                nestedKey !== 'icon' &&
+                                                nestedKey !== 'role' &&
+                                                nestedValue
+                                            )
+                                            .map(([nestedKey, nestedValue]) => {
+                                                const nestedLabel = nestedKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                                if (Array.isArray(nestedValue)) {
+                                                    return `${nestedLabel}: ${(nestedValue as any[]).join(', ')}`;
+                                                }
+                                                return `${nestedLabel}: ${nestedValue}`;
+                                            });
+
+                                        lines.push(`- ${nestedTitle}${details.length ? ` (${details.join(' | ')})` : ''}`);
+                                    });
+                                }
                             } else {
                                 lines.push(`${sublabel}: ${v}`);
                             }
@@ -188,8 +279,14 @@ export default function WizardPage() {
             if (response.ok) {
                 const data = await response.json();
                 setPortfolio(data.portfolio);
-                const step = data.wizardStep || data.portfolio.wizard_step || 2;
-                setCurrentStep(step);
+
+                // If portfolio is already published, go to Theme step (first editable step)
+                if (data.portfolio.status === 'published') {
+                    setCurrentStep(6);
+                } else {
+                    const step = data.wizardStep || data.portfolio.wizard_step || 2;
+                    setCurrentStep(step);
+                }
 
             } else {
                 router.push('/user/dashboard');
@@ -330,23 +427,28 @@ export default function WizardPage() {
                             const Icon = step.icon;
                             const isActive = currentStep === step.num;
                             const isCompleted = currentStep > step.num;
+                            const isPublished = portfolio?.status === 'published';
+                            const isLockedStep = isPublished && step.num <= 5;
+                            const canNavigate = isCompleted || isPublished; // Allow navigation if completed or published
 
                             return (
-                                <div
+                                <button
                                     key={step.num}
-                                    className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${isActive
+                                    onClick={() => canNavigate && setCurrentStep(step.num)}
+                                    disabled={!canNavigate}
+                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all text-left ${isActive
                                         ? 'bg-stone-200 text-stone-900 font-medium'
-                                        : isCompleted
-                                            ? 'text-stone-700'
-                                            : 'text-stone-400'
+                                        : canNavigate
+                                            ? 'text-stone-700 hover:bg-stone-100 cursor-pointer'
+                                            : 'text-stone-400 cursor-default'
                                         }`}
                                 >
                                     <div className={`w-5 h-5 flex items-center justify-center rounded ${isActive ? 'text-stone-900' : isCompleted ? 'text-stone-700' : 'text-stone-300'
                                         }`}>
-                                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
+                                        {isLockedStep ? <Lock className="w-3.5 h-3.5 text-stone-400" /> : isCompleted ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
                                     </div>
                                     <span className="text-sm">{step.name}</span>
-                                </div>
+                                </button>
                             );
                         })}
                     </div>
@@ -359,85 +461,90 @@ export default function WizardPage() {
                             {/* Step Components */}
                             <div className="flex-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 {currentStep === 1 && (
-                                    <StepType
-                                        wizardData={wizardData}
-                                        onNext={async (type) => {
-                                            if (isNew) {
-                                                const newPortfolio = await createPortfolio(type);
-                                                if (newPortfolio) nextStep();
-                                            } else {
-                                                await updateWizardStep(2, { portfolioType: type });
-                                                nextStep();
-                                            }
-                                        }}
-                                    />
+                                    portfolio?.status === 'published' ? <StepLocked stepName="Type" /> :
+                                        <StepType
+                                            wizardData={wizardData}
+                                            onNext={async (type) => {
+                                                if (isNew) {
+                                                    const newPortfolio = await createPortfolio(type);
+                                                    if (newPortfolio) nextStep();
+                                                } else {
+                                                    await updateWizardStep(2, { portfolioType: type });
+                                                    nextStep();
+                                                }
+                                            }}
+                                        />
                                 )}
 
                                 {currentStep === 2 && (
-                                    <StepAbout
-                                        wizardData={wizardData}
-                                        onNext={async (data) => {
-                                            await updateWizardStep(3, data);
-                                            nextStep();
-                                        }}
-                                        onBack={prevStep}
-                                    />
+                                    portfolio?.status === 'published' ? <StepLocked stepName="About" /> :
+                                        <StepAbout
+                                            wizardData={wizardData}
+                                            onNext={async (data) => {
+                                                await updateWizardStep(3, data);
+                                                nextStep();
+                                            }}
+                                            onBack={prevStep}
+                                        />
                                 )}
 
                                 {currentStep === 3 && portfolio && (
-                                    <StepSections
-                                        portfolio={portfolio}
-                                        wizardData={wizardData}
-                                        maxSections={maxSections}
-                                        onNext={async (sections) => {
-                                            const token = localStorage.getItem('token');
-                                            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/wizard/${portfolio.id}/sections`, {
-                                                method: 'POST',
-                                                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ sections })
-                                            });
-                                            setTempWizardData(prev => ({ ...prev, selectedSections: sections }));
+                                    portfolio.status === 'published' ? <StepLocked stepName="Sections" /> :
+                                        <StepSections
+                                            portfolio={portfolio}
+                                            wizardData={wizardData}
+                                            maxSections={maxSections}
+                                            onNext={async (sections) => {
+                                                const token = localStorage.getItem('token');
+                                                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/wizard/${portfolio.id}/sections`, {
+                                                    method: 'POST',
+                                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ sections })
+                                                });
+                                                setTempWizardData(prev => ({ ...prev, selectedSections: sections }));
 
-                                            // Directly move to Step 4 after saving sections
-                                            await updateWizardStep(4, {});
-                                            await fetchPortfolio();
-                                            nextStep();
-                                        }}
-                                        onBack={prevStep}
-                                        setMaxSections={setMaxSections}
-                                    />
+                                                // Directly move to Step 4 after saving sections
+                                                await updateWizardStep(4, {});
+                                                await fetchPortfolio();
+                                                nextStep();
+                                            }}
+                                            onBack={prevStep}
+                                            setMaxSections={setMaxSections}
+                                        />
                                 )}
 
                                 {currentStep === 4 && portfolio && (
-                                    <StepContent
-                                        portfolio={portfolio}
-                                        wizardData={wizardData}
-                                        onNext={async () => {
-                                            await updateWizardStep(5, {});
-                                            await fetchPortfolio();
-                                            nextStep();
-                                        }}
-                                        onBack={prevStep}
-                                        refreshPortfolio={fetchPortfolio}
-                                    />
+                                    portfolio.status === 'published' ? <StepLocked stepName="Content" /> :
+                                        <StepContent
+                                            portfolio={portfolio}
+                                            wizardData={wizardData}
+                                            onNext={async () => {
+                                                await updateWizardStep(5, {});
+                                                await fetchPortfolio();
+                                                nextStep();
+                                            }}
+                                            onBack={prevStep}
+                                            refreshPortfolio={fetchPortfolio}
+                                        />
                                 )}
 
                                 {currentStep === 5 && portfolio && (
-                                    <StepFeatures
-                                        wizardData={wizardData}
-                                        onNext={async (hasAiManager) => {
-                                            await updateWizardStep(6, { hasAiManager });
-                                            nextStep();
-                                        }}
-                                        onBack={prevStep}
-                                    />
+                                    portfolio.status === 'published' ? <StepLocked stepName="Features" /> :
+                                        <StepFeatures
+                                            wizardData={wizardData}
+                                            onNext={async (featuresData) => {
+                                                await updateWizardStep(6, featuresData);
+                                                nextStep();
+                                            }}
+                                            onBack={prevStep}
+                                        />
                                 )}
 
                                 {currentStep === 6 && portfolio && (
                                     <StepTheme
                                         wizardData={wizardData}
-                                        onNext={async (theme) => {
-                                            await updateWizardStep(7, { theme });
+                                        onNext={async (theme: string, colorScheme: { name: string; colors: string[] }) => {
+                                            await updateWizardStep(7, { theme, colorScheme });
                                             nextStep();
                                         }}
                                         onBack={prevStep}
@@ -456,6 +563,35 @@ export default function WizardPage() {
                     </div>
                 </main>
             </div>
+        </div>
+    );
+}
+
+// ============================================
+// LOCKED STEP (for published portfolios)
+// ============================================
+
+function StepLocked({ stepName }: { stepName: string }) {
+    const router = useRouter();
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-center py-20">
+            <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center mb-6">
+                <Lock className="w-7 h-7 text-stone-400" />
+            </div>
+            <h2 className="text-2xl font-serif text-stone-900 mb-3">
+                {stepName} is locked
+            </h2>
+            <p className="text-stone-500 max-w-md mb-8 leading-relaxed">
+                Right now you can only update your website through chat. Start a new conversation to make changes to your portfolio content.
+            </p>
+            <button
+                onClick={() => router.push('/user/chat')}
+                className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-full hover:bg-stone-800 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
+            >
+                <MessageSquare className="w-4 h-4" />
+                Go to Chat
+            </button>
         </div>
     );
 }
@@ -597,11 +733,15 @@ function StepAbout({ wizardData, onNext, onBack }: {
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="I specialize in building..."
                         rows={6}
+                        maxLength={2000}
                         className="w-full p-4 rounded-lg border border-stone-200 focus:border-stone-900 focus:ring-0 focus:outline-none bg-stone-50 transition-colors placeholder:text-stone-300 text-sm leading-relaxed font-sans min-h-[120px] max-h-[400px] overflow-y-auto resize-y [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-stone-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-stone-300"
                     />
-                    <p className="text-xs text-stone-400 text-right">
-                        {description.length}/200 min chars
-                    </p>
+                    <div className="flex justify-between items-center mt-1">
+                        <span className="text-xs text-stone-400">Min 200 chars</span>
+                        <span className={`text-xs ${description.length >= 2000 ? 'text-red-500 font-bold' : 'text-stone-400'}`}>
+                            {description.length}/2000
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -814,9 +954,9 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
                 <button
                     onClick={() => onNext(selectedSections)}
                     disabled={
-                        selectedSections.length === 0 || 
-                        isThinking || 
-                        !selectedSections.includes('hero') || 
+                        selectedSections.length === 0 ||
+                        isThinking ||
+                        !selectedSections.includes('hero') ||
                         !selectedSections.includes('contact')
                     }
                     className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-full hover:bg-stone-800 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
@@ -968,7 +1108,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
                 if (response.ok) {
                     const data = await response.json();
-                    
+
                     if (data.history && data.history.length > 0) {
                         // Has existing conversation - show it
                         const messages: ChatMessage[] = data.history.map((msg: any) => ({
@@ -978,13 +1118,13 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                         }));
                         setChatMessages(messages);
                         setConversationHistory(messages);
-                        
+
                         // If we have saved content and the last message doesn't indicate it was saved,
                         // add a helpful message showing they can modify it
                         if (hasContent) {
                             const lastMsg = messages[messages.length - 1];
-                            const alreadyHasApprovalMsg = lastMsg?.content?.includes('approved and saved') || 
-                                                          lastMsg?.content?.includes('section approved');
+                            const alreadyHasApprovalMsg = lastMsg?.content?.includes('approved and saved') ||
+                                lastMsg?.content?.includes('section approved');
                             if (!alreadyHasApprovalMsg) {
                                 setChatMessages(prev => [...prev, {
                                     role: 'ai',
@@ -1006,11 +1146,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 role: 'ai',
                 content: hasContent
                     ? `The **${sectionInfo?.label || currentSection.type}** section is complete! You can ask me to modify it or regenerate entirely.`
-                    : `Let's build your **${sectionInfo?.label || currentSection.type}** section!\n\n` +
-                    `You can:\n` +
-                    `* Tell me about what you want in this section\n` +
-                    `* Type "generate" to let me create it\n` +
-                    `* Paste your content and I'll format it`,
+                    : `Let's make ur **${sectionInfo?.label || currentSection.type}** section, tell me what u want in it!`,
                 timestamp: new Date()
             }]);
         };
@@ -1541,21 +1677,67 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
 function StepFeatures({ wizardData, onNext, onBack }: {
     wizardData: WizardData;
-    onNext: (hasAiManager: boolean) => void;
+    onNext: (featuresData: Partial<WizardData>) => void;
     onBack: () => void;
 }) {
+    const PERSONALITIES = [
+        { id: 'professional', label: 'Professional', description: 'Clear, polished, and business-focused.' },
+        { id: 'friendly', label: 'Friendly', description: 'Warm, approachable, and easy to talk to.' },
+        { id: 'concise', label: 'Concise', description: 'Short, direct answers with minimal fluff.' },
+        { id: 'storyteller', label: 'Storyteller', description: 'Narrative style with context.' },
+    ];
+
     const [hasAiManager, setHasAiManager] = useState(wizardData?.hasAiManager || false);
+    const [aiManagerName, setAiManagerName] = useState(wizardData?.aiManagerName || '');
+    const [aiManagerPersonality, setAiManagerPersonality] = useState(wizardData?.aiManagerPersonality || '');
+    const [aiManagerHasPortfolioAccess, setAiManagerHasPortfolioAccess] = useState(
+        wizardData?.aiManagerHasPortfolioAccess || false
+    );
+    const [aiManagerFinalized, setAiManagerFinalized] = useState(wizardData?.aiManagerFinalized || false);
+
+    useEffect(() => {
+        if (!hasAiManager) {
+            setAiManagerFinalized(false);
+        }
+    }, [hasAiManager]);
+
+    const canFinalize = Boolean(
+        hasAiManager &&
+        aiManagerName.trim() &&
+        aiManagerPersonality &&
+        aiManagerHasPortfolioAccess
+    );
+
+    const handleContinue = () => {
+        onNext({
+            hasAiManager,
+            aiManagerName: hasAiManager ? aiManagerName.trim() : '',
+            aiManagerPersonality: hasAiManager ? aiManagerPersonality : '',
+            aiManagerHasPortfolioAccess: hasAiManager ? aiManagerHasPortfolioAccess : false,
+            aiManagerFinalized: hasAiManager ? aiManagerFinalized : false
+        });
+    };
 
     return (
         <div>
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Step 5</span>
-                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Power up your portfolio</h2>
-                <p className="text-stone-600">Enable advanced AI features to keep your portfolio fresh.</p>
+                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Add your AI Manager</h2>
+                <p className="text-stone-600">Set up an AI manager that answers visitors on your behalf like a real manager.</p>
             </div>
 
             <div
-                onClick={() => setHasAiManager(!hasAiManager)}
+                onClick={() => {
+                    const nextState = !hasAiManager;
+                    setHasAiManager(nextState);
+
+                    if (!nextState) {
+                        setAiManagerName('');
+                        setAiManagerPersonality('');
+                        setAiManagerHasPortfolioAccess(false);
+                        setAiManagerFinalized(false);
+                    }
+                }}
                 className={`group relative p-6 rounded-xl border transition-all cursor-pointer ${hasAiManager
                     ? 'bg-purple-50 border-purple-200 shadow-sm'
                     : 'bg-white border-stone-200 hover:border-stone-300 hover:shadow-sm'
@@ -1564,7 +1746,7 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                 <div className="flex items-start gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-colors ${hasAiManager ? 'bg-purple-100 text-purple-600' : 'bg-stone-100 text-stone-400'
                         }`}>
-                        🤖
+                        AI
                     </div>
                     <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
@@ -1579,21 +1761,92 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                         </div>
                         <p className={`text-sm leading-relaxed mb-4 transition-colors ${hasAiManager ? 'text-purple-700' : 'text-stone-600'
                             }`}>
-                            Let an AI agent live on your site to answer visitor questions, schedule meetings, and collect leads 24/7.
+                            It can answer all portfolio-related questions, retain context you share, and continue until you ask it to forget.
                         </p>
 
                         <div className="flex items-center gap-4 text-xs font-medium">
                             <span className={`px-2 py-1 rounded ${hasAiManager ? 'bg-purple-100 text-purple-700' : 'bg-stone-100 text-stone-600'
                                 }`}>
-                                💎 50 credits / month
+                                150 additional credits
                             </span>
                             <span className={hasAiManager ? 'text-purple-600' : 'text-stone-500'}>
-                                • Live Visitor Interaction
+                                Acts like your manager in chat
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {hasAiManager && (
+                <div className="mt-6 space-y-5 rounded-xl border border-purple-200 bg-purple-50/50 p-5">
+                    <div>
+                        <label className="block text-sm font-semibold text-stone-700 mb-2">Give it a name</label>
+                        <input
+                            value={aiManagerName}
+                            onChange={(e) => {
+                                setAiManagerName(e.target.value);
+                                if (aiManagerFinalized) setAiManagerFinalized(false);
+                            }}
+                            placeholder="e.g. Alex, Nora, Orion"
+                            className="w-full px-4 py-2.5 rounded-lg border border-stone-300 bg-white text-stone-900 placeholder:text-stone-400 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                        />
+                    </div>
+
+                    <div>
+                        <p className="text-sm font-semibold text-stone-700 mb-2">Choose personality</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {PERSONALITIES.map((personality) => (
+                                <button
+                                    key={personality.id}
+                                    onClick={() => {
+                                        setAiManagerPersonality(personality.id);
+                                        if (aiManagerFinalized) setAiManagerFinalized(false);
+                                    }}
+                                    className={`text-left rounded-lg border p-3 transition-all ${aiManagerPersonality === personality.id
+                                        ? 'border-purple-500 bg-white shadow-sm'
+                                        : 'border-stone-200 bg-white hover:border-stone-300'
+                                        }`}
+                                >
+                                    <p className="text-sm font-semibold text-stone-900">{personality.label}</p>
+                                    <p className="text-xs text-stone-600 mt-1">{personality.description}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border border-stone-200 bg-white p-4">
+                        <p className="text-sm text-stone-700 mb-3">
+                            Give it access to your portfolio&apos;s data you have shared so far.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setAiManagerHasPortfolioAccess(true);
+                                if (aiManagerFinalized) setAiManagerFinalized(false);
+                            }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${aiManagerHasPortfolioAccess
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-stone-900 text-white hover:bg-stone-800'
+                                }`}
+                        >
+                            {aiManagerHasPortfolioAccess ? 'Access Granted' : 'Yes, Give Access'}
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed border-purple-300 bg-white p-4">
+                        <p className="text-sm text-stone-600">Finalize this AI agent for your portfolio.</p>
+                        <button
+                            onClick={() => setAiManagerFinalized(true)}
+                            disabled={!canFinalize}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${canFinalize
+                                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                                : 'bg-stone-100 text-stone-400 cursor-not-allowed'
+                                }`}
+                        >
+                            Finalize AI Agent
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="flex justify-between items-center pt-8 border-t border-stone-100 mt-8">
                 <button
@@ -1603,8 +1856,12 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                     Back
                 </button>
                 <button
-                    onClick={() => onNext(hasAiManager)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white font-medium rounded-lg hover:bg-stone-800 transition-all shadow-sm hover:shadow active:scale-95"
+                    onClick={handleContinue}
+                    disabled={hasAiManager && !aiManagerFinalized}
+                    className={`flex items-center gap-2 px-6 py-2.5 font-medium rounded-lg transition-all shadow-sm ${hasAiManager && !aiManagerFinalized
+                        ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
+                        : 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow active:scale-95'
+                        }`}
                 >
                     Continue <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1612,55 +1869,118 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         </div>
     );
 }
-
 // ============================================
 // STEP 6: THEME SELECTION
 // ============================================
 
 function StepTheme({ wizardData, onNext, onBack }: {
     wizardData: WizardData;
-    onNext: (theme: string) => void;
+    onNext: (theme: string, colorScheme: { name: string; colors: string[] }) => void;
     onBack: () => void;
 }) {
-    const [selected, setSelected] = useState(wizardData?.theme || 'default');
+    const [selectedTheme, setSelectedTheme] = useState(wizardData?.theme || '');
+    const [selectedColorScheme, setSelectedColorScheme] = useState<string>(
+        wizardData?.colorScheme?.name || ''
+    );
+
+    const isValid = selectedTheme && selectedColorScheme;
+
+    const handleContinue = () => {
+        if (!isValid) return;
+        const scheme = COLOR_SCHEMES.find(s => s.id === selectedColorScheme);
+        if (scheme) {
+            onNext(selectedTheme, { name: scheme.name, colors: scheme.colors });
+        }
+    };
 
     return (
         <div>
             <div className="mb-8">
-                <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Step 6</span>
-                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Choose your style</h2>
-                <p className="text-stone-600">Select a theme that matches your brand.</p>
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Step 6</span>
+                <h2 className="text-3xl font-serif text-stone-900 mt-2 mb-2">Choose Your Style</h2>
+                <p className="text-stone-500">Select a theme and color scheme for your portfolio.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                {THEMES.map((theme) => (
-                    <button
-                        key={theme.id}
-                        onClick={() => setSelected(theme.id)}
-                        className={`group relative rounded-xl border overflow-hidden transition-all text-left ${selected === theme.id
-                            ? 'border-stone-900 ring-1 ring-stone-900 shadow-md transform scale-[1.02]'
-                            : 'border-stone-200 hover:border-stone-300 hover:shadow-sm'
-                            }`}
-                    >
-                        {/* Theme Preview Block */}
-                        <div className={`h-32 w-full ${theme.preview} relative`}>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
-                                <div className="text-white font-medium text-sm">{theme.name}</div>
-                            </div>
-                            {selected === theme.id && (
-                                <div className="absolute top-2 right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
-                                    <Check className="w-4 h-4 text-stone-900" />
+            {/* Theme Selection */}
+            <div className="mb-8">
+                <h3 className="text-sm font-bold text-stone-700 mb-4 uppercase tracking-wider">Portfolio Theme</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {THEMES.map((theme) => (
+                        <button
+                            key={theme.id}
+                            onClick={() => setSelectedTheme(theme.id)}
+                            className={`group p-6 rounded-xl border text-left transition-all duration-300 ${selectedTheme === theme.id
+                                ? 'border-stone-900 bg-stone-50 shadow-md'
+                                : 'border-stone-200 hover:border-stone-300 bg-white hover:shadow-sm'
+                                }`}
+                        >
+                            <div className="flex items-start gap-4">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-colors ${selectedTheme === theme.id
+                                    ? 'bg-stone-900 text-white'
+                                    : 'bg-stone-100 text-stone-400 group-hover:bg-stone-200'
+                                    }`}>
+                                    <theme.icon className="w-6 h-6" />
                                 </div>
-                            )}
-                        </div>
-                        <div className="p-4 bg-white">
-                            <p className="text-xs text-stone-500">{theme.description}</p>
-                        </div>
-                    </button>
-                ))}
+                                <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <h4 className="text-lg font-semibold text-stone-900">{theme.name}</h4>
+                                        {selectedTheme === theme.id && (
+                                            <div className="w-5 h-5 bg-stone-900 rounded-full flex items-center justify-center">
+                                                <Check className="w-3 h-3 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-sm text-stone-500">{theme.description}</p>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-stone-100">
+            {/* Color Scheme Selection - Only show when theme is selected */}
+            {selectedTheme && (
+                <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <h3 className="text-sm font-bold text-stone-700 mb-4 uppercase tracking-wider">Color Scheme</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {COLOR_SCHEMES.map((scheme) => (
+                            <button
+                                key={scheme.id}
+                                onClick={() => setSelectedColorScheme(scheme.id)}
+                                className={`group relative rounded-xl border overflow-hidden transition-all ${selectedColorScheme === scheme.id
+                                    ? 'border-stone-900 ring-2 ring-stone-900 shadow-lg'
+                                    : 'border-stone-200 hover:border-stone-300 hover:shadow-md'
+                                    }`}
+                            >
+                                {/* Stacked Color Boxes */}
+                                <div className="h-32 flex flex-col">
+                                    {scheme.colors.map((color, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex-1"
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Label */}
+                                <div className="p-3 bg-white border-t border-stone-100">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-stone-700">{scheme.name}</span>
+                                        {selectedColorScheme === scheme.id && (
+                                            <div className="w-4 h-4 bg-stone-900 rounded-full flex items-center justify-center">
+                                                <Check className="w-3 h-3 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="flex justify-between items-center pt-6 border-t border-stone-100">
                 <button
                     onClick={onBack}
                     className="text-stone-500 hover:text-stone-900 px-4 py-2 text-sm font-medium transition-colors"
@@ -1668,8 +1988,12 @@ function StepTheme({ wizardData, onNext, onBack }: {
                     Back
                 </button>
                 <button
-                    onClick={() => onNext(selected)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white font-medium rounded-lg hover:bg-stone-800 transition-all shadow-sm hover:shadow active:scale-95"
+                    onClick={handleContinue}
+                    disabled={!isValid}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md active:scale-95 ${isValid
+                        ? 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow-lg hover:-translate-y-0.5'
+                        : 'bg-stone-200 text-stone-400 cursor-not-allowed shadow-none'
+                        }`}
                 >
                     Continue <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1691,23 +2015,20 @@ function StepPublish({ portfolio, wizardData, onBack }: {
     const [isChecking, setIsChecking] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
     const [isPublishing, setIsPublishing] = useState(false);
-    const params = useParams();
     const router = useRouter();
-
-    // Auto-generate slug from name if empty
-    useEffect(() => {
-        if (!slug && wizardData?.name) {
-            const suggested = wizardData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            setSlug(suggested);
-            checkSlug(suggested);
-        }
-    }, [wizardData?.name]);
+    const isPublished = portfolio.status === 'published';
 
     const checkSlug = async (value: string) => {
         if (!value.trim()) {
             setIsAvailable(null);
             return;
         }
+        // If it's the current slug and we're published, it's valid (available for us)
+        if (isPublished && value === portfolio.slug) {
+            setIsAvailable(true);
+            return;
+        }
+
         setIsChecking(true);
         const token = localStorage.getItem('token');
         try {
@@ -1735,6 +2056,18 @@ function StepPublish({ portfolio, wizardData, onBack }: {
             setIsChecking(false);
         }
     };
+
+    // Auto-generate slug from name if empty or set if published
+    useEffect(() => {
+        if (isPublished && portfolio.slug) {
+            setSlug(portfolio.slug);
+            setIsAvailable(true);
+        } else if (!slug && wizardData?.name) {
+            const suggested = wizardData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            setSlug(suggested);
+            checkSlug(suggested);
+        }
+    }, [wizardData?.name, isPublished, portfolio.slug]);
 
     const handlePublish = async () => {
         if (!slug || !isAvailable) return;
@@ -1772,55 +2105,76 @@ function StepPublish({ portfolio, wizardData, onBack }: {
         }
     };
 
+    const portfolioUrl = typeof window !== 'undefined' ? `${window.location.origin}/p/${slug}` : `.../p/${slug}`;
+
     return (
         <div>
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Final Step</span>
-                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Claim your link</h2>
-                <p className="text-stone-600">Choose a unique URL for your portfolio.</p>
+                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">
+                    {isPublished ? 'Portfolio is Live!' : 'Claim your link'}
+                </h2>
+                <p className="text-stone-600">
+                    {isPublished ? 'Your portfolio is up and running.' : 'Choose a unique URL for your portfolio.'}
+                </p>
             </div>
 
             <div className="bg-stone-50 p-8 rounded-xl border border-stone-200 text-center mb-8">
                 <div className="w-16 h-16 bg-white rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-sm mb-4">
-                    🚀
+                    {isPublished ? <PartyPopper className="w-8 h-8 text-purple-600" /> : <Rocket className="w-8 h-8 text-stone-900" />}
                 </div>
-                <h3 className="text-xl font-bold text-stone-900 mb-2">You're almost there!</h3>
+                <h3 className="text-xl font-bold text-stone-900 mb-2">
+                    {isPublished ? 'Congratulations!' : "You're almost there!"}
+                </h3>
                 <p className="text-stone-600 mb-6 max-w-sm mx-auto">
-                    Your portfolio is ready to go live. Just pick your username.
+                    {isPublished
+                        ? 'Your portfolio has been published successfully.'
+                        : 'Your portfolio is ready to go live. Just pick your username.'}
                 </p>
 
-                <div className="max-w-xs mx-auto relative">
-                    <div className="flex items-center bg-white border border-stone-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-stone-900 focus-within:border-stone-900 transition-all shadow-sm">
-                        <span className="pl-3 pr-1 text-stone-400 text-sm font-medium">portfolio.com/</span>
-                        <input
-                            type="text"
-                            value={slug}
-                            onChange={(e) => {
-                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-                                setSlug(val);
-                                setIsAvailable(null);
-                            }}
-                            onBlur={() => checkSlug(slug)}
-                            className="w-full py-2 pr-3 border-none focus:ring-0 text-stone-900 font-medium placeholder:text-stone-300"
-                            placeholder="username"
-                        />
-                    </div>
-                    {isChecking && (
-                        <div className="absolute right-3 top-2.5">
-                            <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
+                {isPublished ? (
+                    <div className="max-w-md mx-auto relative mb-6">
+                        <div className="flex items-center justify-center bg-white border border-stone-300 rounded-lg p-3 shadow-sm group hover:border-purple-300 transition-colors cursor-pointer" onClick={() => window.open(portfolioUrl, '_blank')}>
+                            <span className="text-stone-400 mr-2">🔗</span>
+                            <span className="text-purple-600 font-semibold hover:underline truncate">
+                                {portfolioUrl}
+                            </span>
                         </div>
-                    )}
-                    {!isChecking && isAvailable === true && slug && (
-                        <p className="text-xs text-green-600 font-medium mt-2 flex items-center justify-center gap-1">
-                            <Check className="w-3 h-3" /> Available
-                        </p>
-                    )}
-                    {!isChecking && isAvailable === false && slug && (
-                        <p className="text-xs text-red-600 font-medium mt-2 flex items-center justify-center gap-1">
-                            Taken
-                        </p>
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <div className="max-w-xs mx-auto relative">
+                        <div className="flex items-center bg-white border border-stone-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-stone-900 focus-within:border-stone-900 transition-all shadow-sm">
+                            <span className="pl-3 pr-1 text-stone-400 text-sm font-medium">portfolio.com/</span>
+                            <input
+                                type="text"
+                                value={slug}
+                                onChange={(e) => {
+                                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                                    setSlug(val);
+                                    setIsAvailable(null);
+                                }}
+                                onBlur={() => checkSlug(slug)}
+                                className="w-full py-2 pr-3 border-none focus:ring-0 text-stone-900 font-medium placeholder:text-stone-300"
+                                placeholder="username"
+                            />
+                        </div>
+                        {isChecking && (
+                            <div className="absolute right-3 top-2.5">
+                                <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
+                            </div>
+                        )}
+                        {!isChecking && isAvailable === true && slug && (
+                            <p className="text-xs text-green-600 font-medium mt-2 flex items-center justify-center gap-1">
+                                <Check className="w-3 h-3" /> Available
+                            </p>
+                        )}
+                        {!isChecking && isAvailable === false && slug && (
+                            <p className="text-xs text-red-600 font-medium mt-2 flex items-center justify-center gap-1">
+                                Taken
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-stone-100">
@@ -1838,11 +2192,11 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                     {isPublishing ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Publishing...
+                            {isPublished ? 'Updating...' : 'Publishing...'}
                         </>
                     ) : (
                         <>
-                            🚀 Publish Now
+                            {isPublished ? '🔄 Update Changes' : '🚀 Publish Now'}
                         </>
                     )}
                 </button>

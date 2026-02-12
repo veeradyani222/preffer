@@ -5,6 +5,7 @@ import passport from './config/passport';
 import authRoutes from './routes/auth.routes';
 import portfolioRoutes from './routes/portfolio.routes';
 import wizardRoutes from './routes/wizard.routes';
+import assistantRoutes from './routes/assistant.routes';
 import errorHandler from './middleware/errorHandler';
 import { apiLimiter, authLimiter } from './middleware/rateLimiter';
 
@@ -49,6 +50,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/wizard', wizardRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

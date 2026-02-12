@@ -72,7 +72,7 @@ export default function Sidebar() {
                         </div>
                         <div className="flex items-center gap-2 text-[#9B9A97] px-2 py-1 rounded hover:bg-[#EFEFED] cursor-pointer mt-1">
                             <Plus size={14} />
-                            <Link href="/user/wizard/new" className="text-sm">New Page</Link>
+                            <Link href="/user/chat" className="text-sm">New Chat</Link>
                         </div>
                     </div>
                 )}

@@ -3,7 +3,7 @@
  */
 
 export const ALLOWED_SECTION_TYPES = [
-    // Wizard v2 section types
+    // All 14 wizard section types
     'hero',
     'about',
     'services',
@@ -18,15 +18,6 @@ export const ALLOWED_SECTION_TYPES = [
     'menu',
     'achievements',
     'education',
-
-    // Legacy section types
-    'text_block',
-    'tags',
-    'card_grid',
-    'timeline',
-    'testimonials',
-    'contact',
-    'faq',
 ] as const;
 
 export type SectionType = typeof ALLOWED_SECTION_TYPES[number];
