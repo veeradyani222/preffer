@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { FormEvent, Suspense, useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
@@ -52,6 +52,20 @@ interface AssistantMessage {
 }
 
 export default function AssistantChatPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex items-center justify-center h-[50vh]">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#37352f]"></div>
+                </div>
+            }
+        >
+            <AssistantChatPageContent />
+        </Suspense>
+    );
+}
+
+function AssistantChatPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [view, setView] = useState<'selection' | 'chat'>('selection');

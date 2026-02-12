@@ -1,16 +1,18 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-export default function CallbackInner() {
-    const searchParams = useSearchParams();
+type CallbackInnerProps = {
+    token: string | null;
+};
+
+export default function CallbackInner({ token }: CallbackInnerProps) {
     const router = useRouter();
     const { setToken } = useAuth();
 
     useEffect(() => {
-        const token = searchParams.get('token');
         if (token) {
             setToken(token);
             router.push('/user/dashboard');
@@ -18,7 +20,7 @@ export default function CallbackInner() {
             console.error('No token found in callback URL');
             router.push('/login?error=no_token');
         }
-    }, [searchParams, router, setToken]);
+    }, [token, router, setToken]);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-white">
