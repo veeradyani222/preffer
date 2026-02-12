@@ -4,7 +4,15 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
-import Hero from '@/components/Hero';
+import Hero from '@/components/landing/Hero';
+import ProblemSolution from '@/components/landing/ProblemSolution';
+import HowItWorks from '@/components/landing/HowItWorks';
+import Features from '@/components/landing/Features';
+import DemoSection from '@/components/landing/DemoSection';
+import Infrastructure from '@/components/landing/Infrastructure';
+import TargetAudience from '@/components/landing/TargetAudience';
+import CTA from '@/components/landing/CTA';
+import Footer from '@/components/landing/Footer';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -22,9 +30,19 @@ export default function Home() {
   }
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-screen text-gray-900 font-sans selection:bg-[#FFD54F] selection:text-black">
       <Navbar />
-      <Hero />
+      <main>
+        <Hero />
+        <ProblemSolution />
+        <HowItWorks />
+        <Features />
+        <DemoSection />
+        <Infrastructure />
+        <TargetAudience />
+        <CTA />
+      </main>
+      <Footer />
     </div>
   );
 }

@@ -147,6 +147,32 @@ class AssistantController {
             return res.status(500).json({ error: 'Failed to approve pending proposal' });
         }
     }
+
+    static async renameChat(req: Request, res: Response) {
+        try {
+            const authReq = req as AuthRequest;
+            const userId = authReq.user?.userId;
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            const chatId = req.params.chatId as string;
+            const { title } = req.body as { title: string };
+
+            if (!title || !title.trim()) {
+                return res.status(400).json({ error: 'Title is required' });
+            }
+
+            const chat = await AssistantChatService.renameChat(chatId, userId, title);
+            return res.json(chat);
+        } catch (error: any) {
+            console.error('Rename chat error:', error);
+            if (error.message === 'Chat not found or access denied') {
+                return res.status(404).json({ error: error.message });
+            }
+            return res.status(500).json({ error: 'Failed to rename chat' });
+        }
+    }
 }
 
 export default AssistantController;

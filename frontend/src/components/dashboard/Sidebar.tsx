@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { apiFetch } from '@/lib/api';
 import {
     LayoutDashboard,
     Settings,
@@ -12,7 +13,12 @@ import {
     Plus,
     ChevronsLeft,
     Search,
-    Menu
+    Menu,
+    MessageSquare,
+    Bot,
+    Edit2,
+    Check,
+    X,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -20,12 +26,72 @@ export default function Sidebar() {
     const { user, logout } = useAuth();
     const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [recentChats, setRecentChats] = useState<any[]>([]);
+    const [editingChatId, setEditingChatId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState('');
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
+    useEffect(() => {
+        if (mounted && user) {
+            apiFetch('/assistant/chats')
+                .then((chats: any[]) => setRecentChats(chats.slice(0, 5)))
+                .catch(err => console.error('Failed to load recent chats:', err));
+        }
+    }, [mounted, user]);
+
     const isActive = (path: string) => pathname === path;
+
+    const startEditing = (chat: any, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEditingChatId(chat.id);
+        setEditTitle(chat.title || 'Untitled Chat');
+    };
+
+    const cancelEditing = (e?: React.MouseEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        setEditingChatId(null);
+        setEditTitle('');
+    };
+
+    const saveEditing = async (chatId: string, e?: React.MouseEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        if (!editTitle.trim()) return cancelEditing();
+
+        // Optimistic update
+        const originalChats = [...recentChats];
+        setRecentChats(prev => prev.map(c => c.id === chatId ? { ...c, title: editTitle } : c));
+        setEditingChatId(null);
+
+        try {
+            await apiFetch(`/assistant/chats/${chatId}/title`, {
+                method: 'PATCH',
+                body: JSON.stringify({ title: editTitle })
+            });
+        } catch (err) {
+            console.error('Failed to rename chat:', err);
+            // Revert on failure
+            setRecentChats(originalChats);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent, chatId: string) => {
+        if (e.key === 'Enter') {
+            saveEditing(chatId);
+        } else if (e.key === 'Escape') {
+            cancelEditing();
+        }
+    };
 
     const navItems = [
         { name: 'Dashboard', href: '/user/dashboard', icon: LayoutDashboard },
@@ -65,20 +131,73 @@ export default function Sidebar() {
             {/* Navigation */}
             <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
                 {!isCollapsed && (
-                    <div className="px-2 py-1 mb-2">
-                        <div className="flex items-center gap-2 text-[#9B9A97] px-2 py-1 rounded hover:bg-[#EFEFED] cursor-pointer">
-                            <Search size={14} />
-                            <span className="text-sm">Search</span>
+                    <div className="mb-4">
+                        <div className="px-2 py-1 mb-2">
+                            <div className="flex items-center gap-2 text-[#9B9A97] px-2 py-1 rounded hover:bg-[#EFEFED] cursor-pointer">
+                                <Search size={14} />
+                                <span className="text-sm">Search</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[#9B9A97] px-2 py-1 rounded hover:bg-[#EFEFED] cursor-pointer mt-1">
+                                <Plus size={14} />
+                                <Link href="/user/chat" className="text-sm">New Chat</Link>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 text-[#9B9A97] px-2 py-1 rounded hover:bg-[#EFEFED] cursor-pointer mt-1">
-                            <Plus size={14} />
-                            <Link href="/user/chat" className="text-sm">New Chat</Link>
-                        </div>
+
+                        {/* Recent Sessions */}
+                        {recentChats.length > 0 && (
+                            <div className="px-2 mt-2">
+                                <h3 className="px-2 text-xs font-semibold text-[#9B9A97] mb-1 uppercase tracking-wider">Recent</h3>
+                                <div className="space-y-0.5">
+                                    {recentChats.map((chat) => (
+                                        <Link
+                                            key={chat.id}
+                                            href={`/user/chat?chatId=${chat.id}`}
+                                            className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#EFEFED] group text-[#5F5E5B] transition-colors relative pr-8 ${isActive(`/user/chat?chatId=${chat.id}`) ? 'bg-[#EFEFED] text-[#37352f]' : ''
+                                                }`}
+                                            onClick={(e) => editingChatId === chat.id ? e.preventDefault() : null}
+                                        >
+                                            {chat.context_type === 'portfolio' ? (
+                                                <MessageSquare size={14} className="shrink-0 text-[#9B9A97] group-hover:text-[#5F5E5B]" />
+                                            ) : (
+                                                <Bot size={14} className="shrink-0 text-[#9B9A97] group-hover:text-[#5F5E5B]" />
+                                            )}
+
+                                            {editingChatId === chat.id ? (
+                                                <div className="flex items-center flex-1 gap-1 min-w-0" onClick={(e) => e.preventDefault()}>
+                                                    <input
+                                                        type="text"
+                                                        value={editTitle}
+                                                        onChange={(e) => setEditTitle(e.target.value)}
+                                                        onKeyDown={(e) => handleKeyDown(e, chat.id)}
+                                                        className="w-full text-xs px-1 py-0.5 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
+                                                        autoFocus
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                    <Check size={12} className="text-green-600 cursor-pointer hover:bg-green-100 rounded" onClick={(e) => saveEditing(chat.id, e)} />
+                                                    <X size={12} className="text-red-500 cursor-pointer hover:bg-red-100 rounded" onClick={(e) => cancelEditing(e)} />
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <span className="text-sm truncate flex-1">{chat.title || 'Untitled Chat'}</span>
+                                                    <div className="hidden group-hover:flex items-center absolute right-1 bg-[#EFEFED] pl-1">
+                                                        <Edit2
+                                                            size={12}
+                                                            className="text-[#9B9A97] hover:text-[#37352f] cursor-pointer"
+                                                            onClick={(e) => startEditing(chat, e)}
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                <div className="pt-2">
-                    {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-[#9B9A97] mb-1">Private</h3>}
+                <div className="pt-2 border-t border-[#E9E9E7]">
+                    {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-[#9B9A97] mb-1 mt-2">Workspace</h3>}
                     {navItems.map((item) => {
                         const active = isActive(item.href);
                         return (
@@ -100,6 +219,7 @@ export default function Sidebar() {
                         );
                     })}
                 </div>
+
             </nav>
 
             {/* Bottom Actions */}

@@ -1146,7 +1146,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 role: 'ai',
                 content: hasContent
                     ? `The **${sectionInfo?.label || currentSection.type}** section is complete! You can ask me to modify it or regenerate entirely.`
-                    : `Let's make ur **${sectionInfo?.label || currentSection.type}** section, tell me what u want in it!`,
+                    : `Let's make your **${sectionInfo?.label || currentSection.type}** section, tell me what you want it like!`,
                 timestamp: new Date()
             }]);
         };
@@ -1842,7 +1842,7 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                                 : 'bg-stone-100 text-stone-400 cursor-not-allowed'
                                 }`}
                         >
-                            Finalize AI Agent
+                            {aiManagerFinalized ? 'Finalised' : 'Finalize AI Agent'}
                         </button>
                     </div>
                 </div>

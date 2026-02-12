@@ -444,6 +444,25 @@ export class AssistantChatService {
         return result.rows;
     }
 
+    static async renameChat(chatId: string, userId: string, newTitle: string): Promise<AssistantChat> {
+        const query = `
+            UPDATE assistant_chats
+            SET title = $1, updated_at = NOW()
+            WHERE id = $2 AND user_id = $3
+            RETURNING *
+        `;
+
+        const result = await pool.query(query, [newTitle.trim(), chatId, userId]);
+        if (result.rowCount === 0) {
+            throw new Error('Chat not found or access denied');
+        }
+
+        // We also need to fetch the joined data to match the AssistantChat interface fully 
+        // (with portfolio_name, etc.), but for a simple rename, returning the updated row is often enough 
+        // IF the frontend updates optimistically. However, to be safe, let's fetch the full object.
+        return this.getChatById(chatId, userId) as Promise<AssistantChat>;
+    }
+
     static async createChat(
         userId: string,
         contextType: AssistantContextType,

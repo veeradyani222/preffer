@@ -12,5 +12,6 @@ router.post('/chats', AssistantController.createChat);
 router.get('/chats/:chatId/messages', AssistantController.getChatMessages);
 router.post('/chats/:chatId/messages', AssistantController.sendMessage);
 router.post('/chats/:chatId/approve', AssistantController.approvePendingProposal);
+router.patch('/chats/:chatId/title', AssistantController.renameChat);
 
 export default router;

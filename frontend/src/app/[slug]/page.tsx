@@ -207,7 +207,7 @@ export default function PublicPortfolioPage() {
                         ) : (theme.variant === 'techie') ? (
                             /* Techie Theme: Technical, fixed top bar with brackets */
                             <nav
-                                className="sticky top-0 z-50 w-full px-6 py-4 border-b bg-white"
+                                className="fixed top-0 z-50 w-full px-6 py-4 border-b bg-white"
                                 style={{
                                     backgroundColor: theme.colors.lightest,
                                     borderBottom: `2px solid ${theme.colors.darkest}`,
@@ -351,7 +351,7 @@ export default function PublicPortfolioPage() {
             )}
 
             {/* MAIN CONTENT - Type-driven section rendering */}
-            <main className="max-w-4xl mx-auto px-6 py-12">
+            <main className={`max-w-4xl mx-auto px-6 ${theme.variant === 'techie' ? 'pt-32 pb-12' : 'py-12'}`}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.section }}>
                     {visibleSections.map(section => (
                         <section key={section.id} id={section.id} className="scroll-mt-24">

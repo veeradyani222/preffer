@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -51,6 +52,8 @@ interface AssistantMessage {
 }
 
 export default function AssistantChatPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const [view, setView] = useState<'selection' | 'chat'>('selection');
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
@@ -78,8 +81,13 @@ export default function AssistantChatPage() {
     }, [contextType, contextOptions]);
 
     useEffect(() => {
-        loadInitial();
-    }, []);
+        const chatId = searchParams.get('chatId');
+        if (chatId) {
+            loadChat(chatId);
+        } else {
+            loadInitial();
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (!selectedPortfolioId && availableTargets.length > 0) {
@@ -227,6 +235,10 @@ export default function AssistantChatPage() {
     };
 
     const handleBack = () => {
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.delete('chatId');
+        router.push('/user/chat');
+
         setView('selection');
         setSelectedChat(null);
         setMessages([]);

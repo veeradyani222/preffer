@@ -410,7 +410,7 @@ export class PortfolioService {
             description: row.description,
             sections: row.sections || [],
             theme: row.theme,
-            color_scheme: row.wizard_data.color_scheme, // Added mapping
+            color_scheme: row.wizard_data.colorScheme || row.wizard_data.color_scheme, // Added mapping support for camelCase
             has_ai_manager: row.has_ai_manager,
             ai_manager_name: row.ai_manager_name,
             ai_manager_personality: row.ai_manager_personality,

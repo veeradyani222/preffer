@@ -15,6 +15,18 @@ import {
     Globe
 } from 'lucide-react';
 
+const COLOR_SCHEMES: Record<string, string[]> = {
+    'warm': ['#2D1810', '#8D6E63', '#D7CCC8', '#FFFCF9'],
+    'forest': ['#052010', '#1B4D3E', '#5D8C7B', '#F4FBF7'],
+    'ocean': ['#0B1120', '#1E3A8A', '#93C5FD', '#F8FAFC'],
+    'luxury': ['#1E1B2E', '#5B21B6', '#DDD6FE', '#FAF9FE'],
+    'berry': ['#2A0A18', '#BE185D', '#FBCFE8', '#FFF5F7'],
+    'terra': ['#2C1810', '#9A3412', '#FED7AA', '#FFF7ED'],
+    'teal': ['#042F2E', '#0D9488', '#99F6E4', '#F0FDFA'],
+    'slate': ['#0F172A', '#475569', '#CBD5E1', '#F8FAFC'],
+    'monochrome': ['#000000', '#404040', '#A3A3A3', '#FAFAFA']
+};
+
 interface Portfolio {
     id: string;
     name: string;
@@ -26,6 +38,11 @@ interface Portfolio {
     created_at: string;
     updated_at: string;
     wizard_step?: number;
+    color_scheme?: {
+        name: string;
+        colors: string[];
+    };
+    wizard_data?: any;
 }
 
 interface UnfinishedData {
@@ -206,16 +223,31 @@ export default function DashboardPage() {
                         {portfolios.map((portfolio) => (
                             <div
                                 key={portfolio.id}
-                                className="group bg-white border border-[#E9E9E7] rounded-lg overflow-hidden hover:shadow-md transition-shadow flex flex-col h-[180px]"
+                                className="group bg-white border border-[#E9E9E7] rounded-lg hover:shadow-md transition-shadow flex flex-col h-[180px] relative"
                             >
                                 {/* Cover Preview */}
-                                <div className="h-24 bg-[#F7F7F5] relative flex items-center justify-center border-b border-[#E9E9E7]">
-                                    <Globe size={24} className="text-[#E3E2E0]" />
-                                    {portfolio.slug && (
+                                <div className="h-24 bg-[#F7F7F5] relative flex items-center justify-center border-b border-[#E9E9E7] rounded-t-lg overflow-hidden shrink-0">
+                                    {(portfolio.color_scheme?.colors || (portfolio.color_scheme as any)?.name) ? (
+                                        <div className="w-full h-full flex flex-col">
+                                            {(portfolio.color_scheme?.colors || COLOR_SCHEMES[(portfolio.color_scheme as any)?.name?.toLowerCase()] || []).map((color, idx) => (
+                                                <div key={idx} className="flex-1" style={{ backgroundColor: color }} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <Globe size={24} className="text-[#E3E2E0]" />
+                                    )}
+
+                                    {portfolio.status !== 'published' && (
+                                        <div className="absolute top-2 left-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                                            Refining
+                                        </div>
+                                    )}
+
+                                    {portfolio.slug && portfolio.status === 'published' && (
                                         <Link
                                             href={`/${portfolio.slug}`}
                                             target="_blank"
-                                            className="absolute top-2 right-2 bg-white/80 p-1 rounded hover:bg-white text-[#37352f] opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="absolute top-2 right-2 bg-white/80 p-1 rounded hover:bg-white text-[#37352f] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                                             title="View Live"
                                         >
                                             <Globe size={14} />
@@ -229,13 +261,32 @@ export default function DashboardPage() {
                                             {portfolio.name || 'Untitled'}
                                         </Link>
 
-                                        <div className="relative">
+                                        <div className="relative group/menu ml-2">
                                             <button
-                                                onClick={(e) => handleDelete(portfolio.id, e)}
-                                                className="text-[#9B9A97] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                                className="text-[#9B9A97] hover:text-[#37352f] p-1 rounded hover:bg-[#F7F7F5] transition-all"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    // Toggle logic would go here if we weren't using group-hover for simplicity or a library
+                                                }}
                                             >
-                                                <MoreHorizontal size={14} />
+                                                <MoreHorizontal size={16} />
                                             </button>
+
+                                            {/* Dropdown Menu */}
+                                            <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#E9E9E7] rounded shadow-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 py-1">
+                                                <Link
+                                                    href={`/user/chat?portfolioId=${portfolio.id}`}
+                                                    className="block w-full text-left px-3 py-1.5 text-xs text-[#37352f] hover:bg-[#F7F7F5]"
+                                                >
+                                                    Update (Chat)
+                                                </Link>
+                                                <button
+                                                    onClick={(e) => handleDelete(portfolio.id, e)}
+                                                    className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="mt-auto flex items-center justify-between text-xs text-[#9B9A97]">
