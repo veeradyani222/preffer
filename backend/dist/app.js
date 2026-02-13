@@ -41,13 +41,20 @@ app.use('/api/auth/', rateLimiter_1.authLimiter);
 // ============================================
 // Log all incoming requests
 app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.path}`);
+    console.log(`[REQ] ${req.method} ${req.path}`);
     next();
 });
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/portfolio', portfolio_routes_1.default);
 app.use('/api/wizard', wizard_routes_1.default);
 app.use('/api/assistant', assistant_routes_1.default);
+// Root endpoint (quick deployment check)
+app.get('/', (req, res) => {
+    res.json({
+        message: 'Backend is running',
+        timestamp: new Date().toISOString()
+    });
+});
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({

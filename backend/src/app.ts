@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import passport from './config/passport';
@@ -42,8 +42,8 @@ app.use('/api/auth/', authLimiter);
 // ============================================
 
 // Log all incoming requests
-app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.path}`);
+app.use((req: Request, res: Response, next: NextFunction) => {
+    console.log(`[REQ] ${req.method} ${req.path}`);
     next();
 });
 
@@ -52,8 +52,16 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/wizard', wizardRoutes);
 app.use('/api/assistant', assistantRoutes);
 
+// Root endpoint (quick deployment check)
+app.get('/', (req: Request, res: Response) => {
+    res.json({
+        message: 'Backend is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString()
@@ -61,7 +69,7 @@ app.get('/health', (req, res) => {
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
