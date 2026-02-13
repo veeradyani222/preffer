@@ -8,6 +8,7 @@ const passport_1 = __importDefault(require("passport"));
 const auth_controller_1 = __importDefault(require("../controllers/auth.controller"));
 const authenticate_1 = __importDefault(require("../middleware/authenticate"));
 const router = express_1.default.Router();
+const frontendBaseUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
 // Google OAuth - Start authentication
 router.get('/google', passport_1.default.authenticate('google', {
     scope: ['profile', 'email'],
@@ -16,7 +17,7 @@ router.get('/google', passport_1.default.authenticate('google', {
 // Google OAuth - Callback after authentication
 router.get('/google/callback', passport_1.default.authenticate('google', {
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`
+    failureRedirect: `${frontendBaseUrl}/?error=auth_failed`
 }), auth_controller_1.default.googleCallback);
 // Get current user profile (protected route)
 router.get('/me', authenticate_1.default, auth_controller_1.default.getCurrentUser);

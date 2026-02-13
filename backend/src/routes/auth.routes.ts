@@ -4,6 +4,7 @@ import AuthController from '../controllers/auth.controller';
 import authenticate from '../middleware/authenticate';
 
 const router = express.Router();
+const frontendBaseUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 // Google OAuth - Start authentication
 router.get('/google',
@@ -17,7 +18,7 @@ router.get('/google',
 router.get('/google/callback',
     passport.authenticate('google', {
         session: false,
-        failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`
+        failureRedirect: `${frontendBaseUrl}/?error=auth_failed`
     }),
     AuthController.googleCallback
 );

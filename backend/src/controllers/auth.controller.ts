@@ -6,6 +6,9 @@ import CreditsService from '../services/credits.service';
 import { AuthRequest } from '../middleware/authenticate';
 
 class AuthController {
+    private static getFrontendBaseUrl(): string {
+        return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    }
     /**
      * Handle Google OAuth callback
      * Generate JWT and redirect to frontend
@@ -30,11 +33,13 @@ class AuthController {
             );
 
             // Redirect to frontend with token
-            const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?token=${token}`;
+            const frontendBaseUrl = AuthController.getFrontendBaseUrl();
+            const redirectUrl = `${frontendBaseUrl}/auth/callback?token=${encodeURIComponent(token)}`;
             res.redirect(redirectUrl);
         } catch (error) {
             console.error('Google callback error:', error);
-            res.redirect(`${process.env.FRONTEND_URL}/login?error=server_error`);
+            const frontendBaseUrl = AuthController.getFrontendBaseUrl();
+            res.redirect(`${frontendBaseUrl}/?error=server_error`);
         }
     }
 
