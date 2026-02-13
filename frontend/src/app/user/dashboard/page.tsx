@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
+import { buildPortfolioUrl } from '@/lib/publicUrls';
 import Link from 'next/link';
 import { useCredits } from '@/hooks/useCredits';
 import {
@@ -244,14 +245,15 @@ export default function DashboardPage() {
                                     )}
 
                                     {portfolio.slug && portfolio.status === 'published' && (
-                                        <Link
-                                            href={`/${portfolio.slug}`}
+                                        <a
+                                            href={buildPortfolioUrl(portfolio.slug)}
                                             target="_blank"
+                                            rel="noopener noreferrer"
                                             className="absolute top-2 right-2 bg-white/80 p-1 rounded hover:bg-white text-[#37352f] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                                             title="View Live"
                                         >
                                             <Globe size={14} />
-                                        </Link>
+                                        </a>
                                     )}
                                 </div>
 
