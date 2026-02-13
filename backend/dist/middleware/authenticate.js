@@ -9,10 +9,13 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
  * Usage: Add to any route that requires authentication
  */
 const authenticate = (req, res, next) => {
+    console.log('🔐 AUTHENTICATE MIDDLEWARE HIT:', req.method, req.path);
+    console.log('   Authorization Header:', req.headers.authorization ? 'Present' : 'Missing');
     try {
         // Extract token from Authorization header
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('   ❌ No token provided');
             return res.status(401).json({ error: 'No token provided' });
         }
         const token = authHeader.substring(7); // Remove 'Bearer ' prefix
@@ -27,16 +30,19 @@ const authenticate = (req, res, next) => {
             email: decoded.email,
             username: decoded.username
         };
+        console.log('   ✅ Token verified for user:', decoded.userId);
         next();
     }
     catch (error) {
         if (error.name === 'TokenExpiredError') {
+            console.log('   ❌ Token expired');
             return res.status(401).json({ error: 'Token expired' });
         }
         if (error.name === 'JsonWebTokenError') {
+            console.log('   ❌ Invalid token');
             return res.status(401).json({ error: 'Invalid token' });
         }
-        console.error('Authentication error:', error);
+        console.error('   ❌ Authentication error:', error);
         return res.status(500).json({ error: 'Authentication failed' });
     }
 };

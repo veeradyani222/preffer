@@ -8,7 +8,7 @@ const database_1 = __importDefault(require("../config/database"));
 // Columns to select (excludes legacy: headline, bio, skills, experience, projects, education, social_links)
 const PORTFOLIO_COLUMNS = `
     id, user_id, name, slug, portfolio_type, profession, 
-    sections, theme, is_published, published_url, 
+    sections, theme, color_scheme, is_published, published_url, 
     conversation_id, is_active, lifecycle, 
     created_at, updated_at
 `;
@@ -28,6 +28,7 @@ function formatPortfolio(row) {
         profession: row.profession,
         sections: row.sections || [],
         theme: row.theme,
+        color_scheme: row.color_scheme || null,
         is_published: row.is_published,
         published_url: row.published_url,
         conversation_id: row.conversation_id,
@@ -137,10 +138,16 @@ class PortfolioService {
     }
     /**
      * Check if a slug is available
+     * @param excludeId - Optional portfolio ID to exclude from the check (for re-publishing)
      */
-    static async isSlugAvailable(slug) {
-        const query = 'SELECT id FROM portfolios WHERE slug = $1';
-        const result = await database_1.default.query(query, [slug]);
+    static async isSlugAvailable(slug, excludeId) {
+        let query = 'SELECT id FROM portfolios WHERE slug = $1';
+        const params = [slug];
+        if (excludeId) {
+            query += ' AND id != $2';
+            params.push(excludeId);
+        }
+        const result = await database_1.default.query(query, params);
         return result.rows.length === 0;
     }
     /**
@@ -272,9 +279,9 @@ class PortfolioService {
     static async updatePortfolio(portfolioId, updates) {
         // Only allow non-legacy fields
         const allowedFields = [
-            'name', 'theme', 'portfolio_type', 'profession', 'sections'
+            'name', 'theme', 'color_scheme', 'portfolio_type', 'profession', 'sections'
         ];
-        const jsonbFields = ['sections'];
+        const jsonbFields = ['sections', 'color_scheme'];
         const setClause = [];
         const values = [portfolioId];
         let paramIndex = 2;

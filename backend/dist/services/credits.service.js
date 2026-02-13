@@ -20,11 +20,11 @@ exports.CREDIT_COSTS = {
 exports.PLAN_LIMITS = {
     free: {
         maxPortfolios: 3,
-        maxSections: 5,
+        maxSections: 5, // Custom sections (hero and contact are always added)
     },
     pro: {
         maxPortfolios: 10,
-        maxSections: 15,
+        maxSections: 15, // Custom sections (hero and contact are always added)
     },
     enterprise: {
         maxPortfolios: Infinity,
@@ -42,16 +42,20 @@ class CreditsService {
         const userQuery = 'SELECT credits, plan FROM users WHERE id = $1';
         const userResult = await database_1.default.query(userQuery, [userId]);
         if (userResult.rows.length === 0) {
-            throw new Error('User not found');
+            console.error(`User not found in database. userId: ${userId}. Database may have been reset.`);
+            throw new Error('User not found - please clear browser data and log in again');
         }
         const { credits, plan } = userResult.rows[0];
         const limits = exports.PLAN_LIMITS[plan];
-        // Count existing portfolios
-        const countQuery = 'SELECT COUNT(*) as count FROM portfolios WHERE user_id = $1';
+        // Count only PUBLISHED portfolios (drafts don't count toward limit)
+        const countQuery = "SELECT COUNT(*) as count FROM portfolios WHERE user_id = $1 AND status = 'published'";
         const countResult = await database_1.default.query(countQuery, [userId]);
         const portfolioCount = parseInt(countResult.rows[0].count, 10);
-        const canCreatePortfolio = portfolioCount < limits.maxPortfolios &&
-            credits >= exports.CREDIT_COSTS.PORTFOLIO_BASIC;
+        // Count UNFINISHED portfolios (drafts that are being worked on)
+        const unfinishedQuery = "SELECT COUNT(*) as count FROM portfolios WHERE user_id = $1 AND status = 'draft'";
+        const unfinishedResult = await database_1.default.query(unfinishedQuery, [userId]);
+        const unfinishedCount = parseInt(unfinishedResult.rows[0].count, 10);
+        const canCreatePortfolio = portfolioCount < limits.maxPortfolios && unfinishedCount < 5;
         return {
             credits,
             plan,

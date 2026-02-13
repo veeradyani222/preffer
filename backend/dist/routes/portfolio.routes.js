@@ -12,6 +12,9 @@ const router = express_1.default.Router();
 // ============================================
 // Get portfolio by slug (for public pages)
 router.get('/slug/:slug', portfolio_controller_1.default.getBySlug);
+// Public AI manager metadata and chat by slug + manager name
+router.get('/slug/:slug/ai-manager/:aiManagerName', portfolio_controller_1.default.getPublicAiManager);
+router.post('/slug/:slug/ai-manager/:aiManagerName/chat', portfolio_controller_1.default.chatWithPublicAiManager);
 // Check if slug is available
 router.get('/check-slug/:slug', portfolio_controller_1.default.checkSlug);
 // Legacy: Get public portfolio by username
@@ -21,6 +24,8 @@ router.get('/public/:username', portfolio_controller_1.default.getPublicPortfoli
 // ============================================
 // Get all user's portfolios
 router.get('/all', authenticate_1.default, portfolio_controller_1.default.getAllPortfolios);
+// Get unfinished/draft portfolios
+router.get('/unfinished', authenticate_1.default, portfolio_controller_1.default.getUnfinishedPortfolios);
 // Create new portfolio
 router.post('/', authenticate_1.default, portfolio_controller_1.default.createPortfolio);
 // Suggest a unique slug

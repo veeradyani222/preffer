@@ -6,6 +6,7 @@ import { renderSection, sectionHasContent } from '@/components/sections';
 import { defaultTheme, Theme, getThemeForPortfolio, ColorScheme } from '@/themes';
 import { PortfolioSection } from '@/types/section.types';
 import { LuMenu, LuX } from 'react-icons/lu';
+import { getSiteDisplayName } from '@/lib/publicUrls';
 
 interface Portfolio {
     id: string;
@@ -26,6 +27,7 @@ interface Portfolio {
 export default function PublicPortfolioPage() {
     const params = useParams();
     const slug = params.slug as string;
+    const siteDisplayName = getSiteDisplayName();
 
     const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
     const [loading, setLoading] = useState(true);
@@ -411,7 +413,7 @@ export default function PublicPortfolioPage() {
                             className="font-bold hover:underline transition-colors"
                             style={{ color: theme.colors.darkest }}
                         >
-                            myportfolio.app
+                            {siteDisplayName}
                         </a>
                     </p>
                 </div>

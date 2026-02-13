@@ -13,7 +13,6 @@ exports.ALLOWED_SECTION_TYPES = [
     'tags',
     'card_grid',
     'timeline',
-    'gallery',
     'testimonials',
     'contact',
     'faq'
@@ -44,10 +43,6 @@ function inferSectionType(content) {
         const first = content[0];
         // Array of strings
         if (typeof first === 'string') {
-            // Check if images (has image extensions)
-            const isImage = first.match(/\.(jpg|jpeg|png|gif|webp|svg|avif)$/i);
-            if (isImage)
-                return 'gallery';
             return 'tags';
         }
         // Array of objects - check first object's shape
@@ -61,10 +56,6 @@ function inferSectionType(content) {
             // Timeline: has date-related fields
             if (first.date || first.startDate || first.endDate || first.year) {
                 return 'timeline';
-            }
-            // Gallery: has url/src with optional alt/caption
-            if ((first.url || first.src) && (first.alt !== undefined || first.caption !== undefined || first.image)) {
-                return 'gallery';
             }
             // Card grid: has name/title with optional description
             if (first.name || first.title) {

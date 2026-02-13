@@ -30,6 +30,7 @@ import {
     Bot // Imported Bot icon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { buildPortfolioUrl, getPortfolioBaseLabel } from '@/lib/publicUrls';
 
 // ============================================
 // TYPES
@@ -2105,7 +2106,8 @@ function StepPublish({ portfolio, wizardData, onBack }: {
         }
     };
 
-    const portfolioUrl = typeof window !== 'undefined' ? `${window.location.origin}/p/${slug}` : `.../p/${slug}`;
+    const portfolioUrl = buildPortfolioUrl(slug);
+    const portfolioBaseLabel = getPortfolioBaseLabel();
 
     return (
         <div>
@@ -2144,7 +2146,7 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                 ) : (
                     <div className="max-w-xs mx-auto relative">
                         <div className="flex items-center bg-white border border-stone-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-stone-900 focus-within:border-stone-900 transition-all shadow-sm">
-                            <span className="pl-3 pr-1 text-stone-400 text-sm font-medium">portfolio.com/</span>
+                            <span className="pl-3 pr-1 text-stone-400 text-sm font-medium">{portfolioBaseLabel}</span>
                             <input
                                 type="text"
                                 value={slug}

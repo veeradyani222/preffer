@@ -1,7 +1,8 @@
 "use strict";
 /**
- * Wizard Routes
+ * Wizard Routes (v2)
  * Routes for the 7-step portfolio creation wizard
+ * Now with conversational AI and approval flow
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -44,11 +45,28 @@ router.post('/:id/recommend', wizard_controller_1.default.recommendSections);
  */
 router.post('/:id/sections', wizard_controller_1.default.saveSections);
 /**
- * POST /api/wizard/:id/content
- * Step 4: Generate or save content for a section
- * Body: { sectionId: string, userPrompt?: string, manualContent?: any }
+ * POST /api/wizard/:id/chat
+ * Conversational AI for section content
+ * Body: { sectionId: string, message: string, conversationHistory?: [] }
  */
-router.post('/:id/content', wizard_controller_1.default.generateContent);
+router.post('/:id/chat', wizard_controller_1.default.chat);
+/**
+ * GET /api/wizard/:id/history/:sectionId
+ * Get chat history for a specific section
+ */
+router.get('/:id/history/:sectionId', wizard_controller_1.default.getChatHistory);
+/**
+ * POST /api/wizard/:id/generate
+ * Auto-generate section content
+ * Body: { sectionId: string, additionalInfo?: string }
+ */
+router.post('/:id/generate', wizard_controller_1.default.generateContent);
+/**
+ * POST /api/wizard/:id/approve
+ * Approve and save proposed content
+ * Body: { sectionId: string, content?: any }
+ */
+router.post('/:id/approve', wizard_controller_1.default.approveContent);
 /**
  * POST /api/wizard/:id/improve
  * Improve existing section content with AI

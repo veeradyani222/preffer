@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { apiFetch } from '@/lib/api';
+import { API_URL, apiFetch } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export interface User {
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const loginWithGoogle = () => {
         // Redirect to backend Google auth endpoint
-        window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google`;
+        window.location.href = `${API_URL}/auth/google`;
     };
 
     const logout = () => {

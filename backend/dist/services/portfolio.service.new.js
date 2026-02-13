@@ -16,12 +16,13 @@ const credits_service_1 = require("./credits.service");
 class PortfolioService {
     /**
      * Create a new draft portfolio (wizard start)
+     * Drafts are free - credits only deducted on publish
      */
     static async createDraft(userId, input) {
-        // Check if user can create more portfolios
+        // Check portfolio count limit (not credits - drafts are free)
         const userCredits = await credits_service_1.CreditsService.getUserCredits(userId);
         if (!userCredits.canCreatePortfolio) {
-            throw new Error('Cannot create more portfolios. Check your credits or plan limits.');
+            throw new Error(`Portfolio limit reached. Your ${userCredits.plan} plan allows ${credits_service_1.PLAN_LIMITS[userCredits.plan].maxPortfolios} portfolios.`);
         }
         const query = `
             INSERT INTO portfolios (user_id, name, portfolio_type, wizard_step, wizard_data)
@@ -35,7 +36,7 @@ class PortfolioService {
             userId,
             input.name || 'Untitled Portfolio',
             input.portfolio_type,
-            1, // Starting wizard step
+            2, // Starting at step 2 since type selection (step 1) is complete
             JSON.stringify(wizardData)
         ]);
         return this.formatPortfolio(result.rows[0]);
@@ -144,6 +145,10 @@ class PortfolioService {
             // Calculate and deduct credits
             const cost = credits_service_1.CreditsService.getPortfolioCost(hasAiManager);
             const wizardData = portfolio.wizard_data || {};
+            const aiManagerName = hasAiManager ? wizardData.aiManagerName || null : null;
+            const aiManagerPersonality = hasAiManager ? wizardData.aiManagerPersonality || null : null;
+            const aiManagerHasPortfolioAccess = hasAiManager ? Boolean(wizardData.aiManagerHasPortfolioAccess) : false;
+            const aiManagerFinalized = hasAiManager ? Boolean(wizardData.aiManagerFinalized) : false;
             // Update portfolio to published
             const updateQuery = `
                 UPDATE portfolios 
@@ -155,9 +160,14 @@ class PortfolioService {
                     profession = $4,
                     description = $5,
                     credits_used = $6,
+                    ai_manager_name = $7,
+                    ai_manager_personality = $8,
+                    ai_manager_has_portfolio_access = $9,
+                    ai_manager_finalized = $10,
+                    theme = $11,
                     wizard_step = 0,
                     updated_at = NOW()
-                WHERE id = $7
+                WHERE id = $12
                 RETURNING *
             `;
             const updateResult = await client.query(updateQuery, [
@@ -167,6 +177,11 @@ class PortfolioService {
                 wizardData.profession || null,
                 wizardData.description || null,
                 cost,
+                aiManagerName,
+                aiManagerPersonality,
+                aiManagerHasPortfolioAccess,
+                aiManagerFinalized,
+                wizardData.theme || 'minimal',
                 portfolioId
             ]);
             // Deduct credits (in same transaction conceptually, but credits service handles its own)
@@ -233,10 +248,17 @@ class PortfolioService {
             description: row.description,
             sections: row.sections || [],
             theme: row.theme,
+            color_scheme: row.wizard_data.colorScheme || row.wizard_data.color_scheme, // Added mapping support for camelCase
             has_ai_manager: row.has_ai_manager,
+            ai_manager_name: row.ai_manager_name,
+            ai_manager_personality: row.ai_manager_personality,
+            ai_manager_has_portfolio_access: row.ai_manager_has_portfolio_access,
+            ai_manager_finalized: row.ai_manager_finalized,
+            ai_manager_custom_instructions: row.ai_manager_custom_instructions || null,
             status: row.status,
             wizard_step: row.wizard_step,
             wizard_data: row.wizard_data || {},
+            chat_history: row.chat_history || {},
             credits_used: row.credits_used,
             created_at: row.created_at,
             updated_at: row.updated_at,

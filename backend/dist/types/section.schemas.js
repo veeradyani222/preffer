@@ -54,18 +54,6 @@ exports.SECTION_SCHEMAS = {
         ],
         mergeHint: "Company name can go in title (e.g., 'Senior Engineer at Google') or description"
     },
-    gallery: {
-        type: 'gallery',
-        structure: 'array',
-        fields: [
-            { name: 'url', description: 'Image URL or path', required: true },
-            { name: 'caption', description: 'Image caption/description', required: false }
-        ],
-        example: [
-            { url: "/images/cake1.jpg", caption: "Wedding cake for the Sharma family" }
-        ],
-        mergeHint: "Put context and details into caption"
-    },
     testimonials: {
         type: 'testimonials',
         structure: 'array',

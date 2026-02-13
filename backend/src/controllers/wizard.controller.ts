@@ -852,13 +852,14 @@ export class WizardController {
 
             logger.db('UPDATE', 'portfolios', { id: portfolioId, status: 'published', slug });
             logger.wizard(7, 'Portfolio published!', { url: `/${slug}` });
+            const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
             res.json({
                 portfolioId: portfolio.id,
                 slug: portfolio.slug,
                 status: portfolio.status,
                 creditsUsed: portfolio.credits_used,
-                url: `http://localhost:3000/${slug}`,
+                url: `${frontendUrl}/${slug}`,
                 message: 'Portfolio published successfully!'
             });
 

@@ -44,7 +44,10 @@ class AuthController {
             }
             const user = await user_service_1.default.findById(authReq.user.userId);
             if (!user) {
-                return res.status(404).json({ error: 'User not found' });
+                console.error(`User not found for userId: ${authReq.user.userId}. Database may have been reset.`);
+                return res.status(404).json({
+                    error: 'User not found - your session is invalid. Please log in again.'
+                });
             }
             // Return user data (exclude sensitive info)
             res.json({
