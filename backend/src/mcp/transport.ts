@@ -1,8 +1,9 @@
 /**
  * MCP Transport Layer (Stateless / Vercel-compatible)
  * 
- * Each request creates a fresh MCP server + transport.
- * No in-memory session map — works on serverless cold starts.
+ * Follows the official MCP SDK "simpleStatelessStreamableHttp" pattern.
+ * Each request creates a fresh server + transport with sessionIdGenerator: undefined.
+ * This enables true stateless mode — no initialize handshake required.
  * 
  * Mounts at /mcp on the Express app.
  */
@@ -10,7 +11,6 @@
 import { Router, Request, Response } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpServer, resolveUserFromApiKey } from './server';
-import { IncomingMessage, ServerResponse } from 'http';
 
 const router = Router();
 
@@ -28,9 +28,8 @@ function extractApiKey(req: Request): string | null {
 /**
  * POST /mcp — Handle ALL MCP messages (stateless)
  * 
- * Creates a fresh server + transport for every request.
- * This ensures Vercel serverless cold starts never cause
- * "Server not initialized" errors.
+ * Uses sessionIdGenerator: undefined for true stateless mode.
+ * No session or initialize handshake needed.
  */
 router.post('/', async (req: Request, res: Response) => {
     try {
@@ -47,20 +46,18 @@ router.post('/', async (req: Request, res: Response) => {
             return;
         }
 
-        // Create a fresh transport + server for this request
+        // Create fresh server + transport per request (stateless)
+        const server = createMcpServer();
         const transport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: () => `mcp-${user.userId}-${Date.now()}`,
+            sessionIdGenerator: undefined, // <-- THIS enables true stateless mode
         });
 
-        const mcpServer = createMcpServer();
-
-        // Connect server to transport
-        await mcpServer.connect(transport);
+        await server.connect(transport);
 
         // Patch tool call handler to inject userId into extra context
-        const toolCallHandler = (mcpServer.server as any)._requestHandlers?.get?.('tools/call');
+        const toolCallHandler = (server.server as any)._requestHandlers?.get?.('tools/call');
         if (toolCallHandler) {
-            (mcpServer.server as any)._requestHandlers.set('tools/call', async (request: any, extra: any) => {
+            (server.server as any)._requestHandlers.set('tools/call', async (request: any, extra: any) => {
                 if (extra) {
                     extra._userId = user.userId;
                 }
@@ -69,39 +66,54 @@ router.post('/', async (req: Request, res: Response) => {
         }
 
         // Handle the request
-        await transport.handleRequest(
-            req as unknown as IncomingMessage,
-            res as unknown as ServerResponse,
-            req.body
-        );
+        await transport.handleRequest(req, res, req.body);
 
-        // Clean up after response is sent
-        res.on('finish', () => {
-            transport.close?.();
-            mcpServer.close?.();
+        // Clean up when response finishes
+        res.on('close', () => {
+            transport.close();
+            server.close();
         });
     } catch (error: any) {
-        console.error('[MCP] Error handling POST:', error);
+        console.error('[MCP] Error handling request:', error);
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Internal MCP server error' });
+            res.status(500).json({
+                jsonrpc: '2.0',
+                error: {
+                    code: -32603,
+                    message: 'Internal server error'
+                },
+                id: null
+            });
         }
     }
 });
 
 /**
- * GET /mcp — SSE endpoint (stateless: returns instructions)
+ * GET /mcp — Not used in stateless mode
  */
 router.get('/', async (req: Request, res: Response) => {
-    res.status(405).json({
-        error: 'This MCP server uses Streamable HTTP transport. Send POST requests with JSON-RPC messages.'
-    });
+    res.writeHead(405).end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: {
+            code: -32000,
+            message: 'Method not allowed.'
+        },
+        id: null
+    }));
 });
 
 /**
- * DELETE /mcp — Session termination (no-op in stateless mode)
+ * DELETE /mcp — Not used in stateless mode
  */
 router.delete('/', async (req: Request, res: Response) => {
-    res.status(200).json({ message: 'Session terminated' });
+    res.writeHead(405).end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: {
+            code: -32000,
+            message: 'Method not allowed.'
+        },
+        id: null
+    }));
 });
 
 export default router;
