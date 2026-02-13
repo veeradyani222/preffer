@@ -6,8 +6,7 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     throw new Error('Google Client ID and Secret are required');
 }
 
-passport.use(
-    new GoogleStrategy(
+const googleStrategy = new GoogleStrategy(
         {
             clientID: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -36,8 +35,10 @@ passport.use(
                 return done(error, null);
             }
         }
-    )
-);
+    );
+
+// Work around occasional type-package mismatch between passport and passport-google-oauth20.
+passport.use(googleStrategy as unknown as passport.Strategy);
 
 // Serialize user for session (not needed if using JWT only, but good practice to keep)
 passport.serializeUser((user: any, done) => {

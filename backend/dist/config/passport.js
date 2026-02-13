@@ -9,7 +9,7 @@ const user_service_1 = __importDefault(require("../services/user.service"));
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     throw new Error('Google Client ID and Secret are required');
 }
-passport_1.default.use(new passport_google_oauth20_1.Strategy({
+const googleStrategy = new passport_google_oauth20_1.Strategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL,
@@ -33,7 +33,9 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
     catch (error) {
         return done(error, null);
     }
-}));
+});
+// Work around occasional type-package mismatch between passport and passport-google-oauth20.
+passport_1.default.use(googleStrategy);
 // Serialize user for session (not needed if using JWT only, but good practice to keep)
 passport_1.default.serializeUser((user, done) => {
     done(null, user.id);
