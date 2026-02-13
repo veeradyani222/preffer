@@ -401,7 +401,9 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'get_portfolios',
-        `List all portfolios owned by the authenticated user. Returns portfolio names, IDs, statuses (draft/published), slugs, section counts, and AI manager status. Use this to discover which portfolios exist before performing operations on them.`,
+        `List all portfolios owned by the authenticated user. Returns portfolio names, statuses (draft/published), slugs, section counts, and AI manager status. Use this to discover which portfolios exist before performing operations on them.
+
+IMPORTANT: Do NOT show portfolio IDs or any internal identifiers to the user. Use them internally only. Refer to portfolios by their name when talking to the user.`,
         {},
         async (_args, extra) => {
             try {
@@ -427,7 +429,9 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'get_portfolio',
-        `Get full details of a portfolio by its ID. Returns all sections with their content, theme, color scheme, AI manager configuration, and metadata. Use this after get_portfolios to inspect a specific portfolio's content before making edits.`,
+        `Get full details of a portfolio by its ID. Returns all sections with their content, theme, color scheme, AI manager configuration, and metadata. Use this after get_portfolios to inspect a specific portfolio's content before making edits.
+
+IMPORTANT: Do NOT expose any IDs (portfolio ID, section IDs) or raw JSON to the user. Use all identifiers internally only.`,
         { portfolio_id: z.string().uuid().describe('The portfolio UUID to retrieve') },
         async ({ portfolio_id }, extra) => {
             try {
@@ -449,7 +453,9 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'get_portfolio_by_slug',
-        `Get a published portfolio by its public slug. Does not require authentication. Returns full portfolio details including all section content. Use this to inspect any published portfolio. The slug is the URL path segment, e.g. for ${PORTFOLIO_BASE_URL}/john-doe the slug is "john-doe".`,
+        `Get a published portfolio by its public slug. Does not require authentication. Returns full portfolio details including all section content. Use this to inspect any published portfolio. The slug is the URL path segment, e.g. for ${PORTFOLIO_BASE_URL}/john-doe the slug is "john-doe".
+
+IMPORTANT: Do NOT expose any IDs or raw JSON to the user. Use all identifiers internally only.`,
         { slug: z.string().min(1).describe('The portfolio slug (URL path)') },
         async ({ slug }) => {
             try {
@@ -468,7 +474,21 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'create_portfolio',
-        `Create a new draft portfolio. The portfolio starts as a draft with no sections. After creating, IMMEDIATELY call recommend_sections to suggest which sections to add — do NOT ask the user what to do next or tell them to add sections themselves. Then proceed to build each recommended section one by one automatically. Costs credits on publish only.`,
+        `Create a new draft portfolio. The portfolio starts as a draft with no sections.
+
+FULL PORTFOLIO CREATION FLOW (follow this order strictly):
+1. Create portfolio (this tool)
+2. Update portfolio info — call update_portfolio_info with profession and description
+3. Recommend sections — call recommend_sections
+4. Build ALL sections one by one — for each, draft content, present for approval, add with add_section
+5. AI Manager setup — after ALL sections are done, ask user if they want an AI manager. If yes, ask for name, personality, and any custom instructions, then call update_ai_manager.
+6. Theme & color scheme — ask the user's preference or suggest one, then call update_theme.
+7. Publish — check slug availability with check_slug, then call publish_portfolio.
+
+CRITICAL RULES:
+- Do NOT show the portfolio ID to the user. Just confirm by name.
+- Do NOT ask the user what to do next or list next steps. Just proceed automatically through the flow above.
+- Do NOT tell the user to "add sections" or "update theme" themselves — you handle everything.`,
         {
             name: z.string().min(1).max(255).describe('Portfolio display name, e.g. "John Doe Portfolio"'),
             portfolio_type: z.enum(['individual', 'company']).describe('"individual" for personal portfolios, "company" for business websites')
@@ -491,7 +511,9 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'update_portfolio_info',
-        `Update a portfolio's basic information: name, profession, and/or description. Does not affect sections or theme. Only updates the fields you provide.`,
+        `Update a portfolio's basic information: name, profession, and/or description. Does not affect sections or theme. Only updates the fields you provide.
+
+After updating, do NOT ask the user what to do next. Proceed automatically to the next step (e.g. recommend_sections if building a new portfolio).`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID to update'),
             name: z.string().min(1).max(255).optional().describe('New display name'),
@@ -559,7 +581,9 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'delete_portfolio',
-        `Delete a portfolio. Only draft portfolios can be deleted. Published portfolios must be unpublished first. This action is irreversible.`,
+        `Delete a portfolio. Only draft portfolios can be deleted. Published portfolios must be unpublished first. This action is irreversible.
+
+IMPORTANT: Do NOT show the portfolio ID to the user. Refer to the portfolio by name.`,
         { portfolio_id: z.string().uuid().describe('Portfolio ID to delete') },
         async ({ portfolio_id }, extra) => {
             try {
@@ -579,11 +603,16 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'add_section',
-        `Add a new section to a portfolio. The section content must match the schema AND follow the content creation guidance for that section type. IMPORTANT: Call get_section_schemas first to get the required JSON structure and writing guidelines — but do NOT show the schema or JSON structure to the user. Use it silently to construct proper content.
+        `Add a new section to a portfolio. Call get_section_schemas first to get the JSON structure and content guidance — use it internally, NEVER show it to the user.
 
 Available section types: hero, about, services, skills, experience, projects, testimonials, contact, faq, pricing, team, menu, achievements, education.
 
-The section is appended at the end (before contact if contact exists). After successfully adding a section, IMMEDIATELY proceed to the next recommended section — do NOT ask the user if they want to continue or which section is next. Build and present the content for the next section automatically.`,
+CRITICAL RULES FOR CONVERSATION FLOW:
+1. NEVER tell the user the section ID, section type code, or any internal identifier. Just say the section name (e.g. "Hero", "About", "Services").
+2. NEVER show JSON structures, schemas, or raw data to the user.
+3. After adding a section, IMMEDIATELY move to the next recommended section. Draft the content yourself (based on what you know about the user), present it for approval, then add it. Do NOT ask "which section do you want next?" or "what would you like to do?". Just say something like "Great! Now let's work on your Services section..." and present the draft.
+4. Only ask the user for information you genuinely need and cannot infer from context.
+5. After ALL sections are done, move to the AI Manager step: ask the user if they'd like an AI manager for their portfolio, and if yes, ask for the name, personality, and any custom instructions. Then proceed to theme selection, and finally publishing.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID'),
             section_type: z.string().describe('Section type (e.g. "hero", "about", "services")'),
@@ -631,7 +660,7 @@ The section is appended at the end (before contact if contact exists). After suc
 
                 await PortfolioService.updateSections(portfolio_id, userId, sections);
 
-                return textResult(`Section **${sectionTitle}** added successfully! Portfolio now has ${sections.length} section(s).`);
+                return textResult(`Section **${sectionTitle}** added successfully! Portfolio now has ${sections.length} section(s).\n\n_INTERNAL: section_id=${newId}. Do NOT share this ID with the user. Proceed to the next section immediately._`);
             } catch (error: any) {
                 return errorResult(error.message);
             }
@@ -643,7 +672,9 @@ The section is appended at the end (before contact if contact exists). After suc
     // ------------------------------------------
     server.tool(
         'update_section',
-        `Update the content of an existing section. You must provide the complete updated content object (not a partial update). The content must match the section type's schema AND follow the content creation guidance. IMPORTANT: Call get_section_schemas to see both the required JSON structure and writing guidelines, then use get_portfolio to see current section IDs and content before updating.`,
+        `Update the content of an existing section. You must provide the complete updated content object (not a partial update). The content must match the section type's schema AND follow the content creation guidance. Call get_section_schemas to see both the required JSON structure and writing guidelines, then use get_portfolio to see current section IDs and content before updating.
+
+IMPORTANT: Do NOT show portfolio IDs, section IDs, schemas, or JSON to the user. Use all identifiers internally only. Refer to sections by their display name.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID'),
             section_id: z.string().describe('Section ID to update (from get_portfolio output)'),
@@ -686,7 +717,9 @@ The section is appended at the end (before contact if contact exists). After suc
     // ------------------------------------------
     server.tool(
         'remove_section',
-        `Remove a section from a portfolio by its section ID. The hero and contact sections typically should not be removed as they are mandatory. Use get_portfolio to see section IDs.`,
+        `Remove a section from a portfolio by its section ID. The hero and contact sections typically should not be removed as they are mandatory. Use get_portfolio to see section IDs.
+
+IMPORTANT: Do NOT show portfolio IDs or section IDs to the user. Refer to sections by their display name.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID'),
             section_id: z.string().describe('Section ID to remove')
@@ -723,11 +756,9 @@ The section is appended at the end (before contact if contact exists). After suc
     // ------------------------------------------
     server.tool(
         'get_section_schemas',
-        `Get the JSON content schemas AND content creation guidance for section types. Each entry shows the exact JSON structure required for add_section / update_section plus writing guidelines.
+        `Get the JSON content schemas AND content creation guidance for section types. ALWAYS call this before creating or updating sections.
 
-ALWAYS call this before creating or updating sections. Follow both the structure AND guidance for high-quality content.
-
-IMPORTANT: This information is for YOUR internal use only — do NOT display schemas, JSON structures, or raw guidance text to the user. Use them silently to construct proper section content.`,
+CRITICAL: This is STRICTLY for your internal use. ABSOLUTELY NEVER show schemas, JSON structures, field names, or guidance text to the user. The user should never know these exist. Use them silently to construct proper section content.`,
         {
             section_type: z.string().optional().describe('Optional: get schema for a specific section type only')
         },
@@ -759,9 +790,15 @@ IMPORTANT: This information is for YOUR internal use only — do NOT display sch
     // ------------------------------------------
     server.tool(
         'recommend_sections',
-        `Use AI to recommend the best sections for a portfolio based on the profession and description. Returns a list of recommended section types with reasoning.
+        `Use AI to recommend the best sections for a portfolio based on the profession and description.
 
-After receiving recommendations, IMMEDIATELY proceed to add each section one by one. For each section: call get_section_schemas internally (do NOT show the schema to the user), draft high-quality content yourself based on the user's description/profession, present the draft to the user for approval, and then call add_section. Move to the next section automatically after each one is added — do NOT ask "which section is next" or "would you like to add the next section".`,
+CRITICAL RULES AFTER RECEIVING RECOMMENDATIONS:
+1. Do NOT list the recommended sections to the user or ask them to choose. Just start building.
+2. For EACH section, silently call get_section_schemas, draft high-quality content based on what you know about the user, present the draft for approval, then call add_section.
+3. After each section is added, IMMEDIATELY move to the next one. Say something like "Perfect! Now let's set up your About section..." and present the next draft.
+4. NEVER ask "which section do you want next?" or "what would you like to do?" — just keep going.
+5. Do NOT show section type codes (like "hero", "about") — use friendly names ("Hero", "About", "Services").
+6. After ALL sections are built, proceed to the AI Manager step: ask the user if they want an AI manager, collect name/personality/instructions if yes, then move to theme selection, then publishing.`,
         {
             portfolio_type: z.enum(['individual', 'company']).describe('Portfolio type'),
             profession: z.string().describe('Profession or industry, e.g. "Web Developer", "Photography Studio"'),
@@ -782,11 +819,11 @@ After receiving recommendations, IMMEDIATELY proceed to add each section one by 
                 );
 
                 const sectionList = result.sections.map((s, i) =>
-                    `${i + 1}. **${SECTION_LABELS[s] || s}** (\`${s}\`)`
+                    `${i + 1}. ${SECTION_LABELS[s] || s} [type:${s}]`
                 ).join('\n');
 
                 return textResult(
-                    `# Recommended Sections\n\n${sectionList}\n\n## Reasoning\n${result.reasoning}\n\n_Now proceed to build each section one by one, starting with the first one._`
+                    `# Recommended Sections (INTERNAL — do NOT show this list to the user)\n\n${sectionList}\n\n## Reasoning\n${result.reasoning}\n\n---\n**INSTRUCTION**: Start building sections NOW. Begin with section 1. For each: silently get the schema, draft content, present it to user, add on approval, then move to the next. Do NOT list these to the user or ask which one they want.`
                 );
             } catch (error: any) {
                 return errorResult(error.message);
@@ -799,7 +836,9 @@ After receiving recommendations, IMMEDIATELY proceed to add each section one by 
     // ------------------------------------------
     server.tool(
         'publish_portfolio',
-        `Publish a draft portfolio with a slug, making it live at ${PORTFOLIO_BASE_URL}/{slug}. This deducts credits from the user's balance. Use check_slug first to verify the slug is available. The portfolio must have at least hero and contact sections.`,
+        `Publish a draft portfolio with a slug, making it live at ${PORTFOLIO_BASE_URL}/{slug}. This deducts credits from the user's balance. Use check_slug first to verify the slug is available. The portfolio must have at least hero and contact sections.
+
+IMPORTANT: Do NOT show the portfolio ID to the user. Just share the live URL after publishing.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID to publish'),
             slug: z.string().min(1).max(100).describe('URL slug for the published portfolio, e.g. "john-doe"')
@@ -856,7 +895,9 @@ After receiving recommendations, IMMEDIATELY proceed to add each section one by 
     // ------------------------------------------
     server.tool(
         'get_ai_manager',
-        `Get the AI manager configuration for a portfolio. Returns the manager's name, personality, custom instructions, finalized status, and portfolio access settings.`,
+        `Get the AI manager configuration for a portfolio. Returns the manager's name, personality, custom instructions, finalized status, and portfolio access settings.
+
+IMPORTANT: Do NOT show portfolio IDs or internal configuration details to the user. Present AI manager info in a friendly, readable way.`,
         { portfolio_id: z.string().uuid().describe('Portfolio ID') },
         async ({ portfolio_id }, extra) => {
             try {
@@ -892,7 +933,9 @@ After receiving recommendations, IMMEDIATELY proceed to add each section one by 
     // ------------------------------------------
     server.tool(
         'update_ai_manager',
-        `Update the AI manager settings for a portfolio. You can update the name, personality, custom instructions, portfolio access, and finalized status. Only updates the fields you provide.`,
+        `Update the AI manager settings for a portfolio. You can update the name, personality, custom instructions, portfolio access, and finalized status. Only updates the fields you provide.
+
+IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to the next step in the flow (theme selection if during portfolio creation).`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID'),
             name: z.string().max(120).optional().describe('AI manager display name'),
@@ -1011,7 +1054,9 @@ After receiving recommendations, IMMEDIATELY proceed to add each section one by 
         `Update a portfolio's visual theme and/or color scheme. Use get_themes to see available options. You can update theme only, color scheme only, or both at once. Changes take effect immediately on the published portfolio.
 
 Available themes: minimal, techie, elegant
-Available color schemes: warm, forest, ocean, luxury, berry, terra, teal, slate, monochrome`,
+Available color schemes: warm, forest, ocean, luxury, berry, terra, teal, slate, monochrome
+
+IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to publishing if during portfolio creation flow.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID to update'),
             theme: z.string().optional().describe('Theme name: "minimal", "techie", or "elegant"'),
