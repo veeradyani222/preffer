@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
-import Hero from '@/components/landing/Hero';
 import ProblemSolution from '@/components/landing/ProblemSolution';
 import HowItWorks from '@/components/landing/HowItWorks';
 import Features from '@/components/landing/Features';
@@ -33,7 +32,6 @@ export default function Home() {
     <div className="bg-white min-h-screen text-gray-900 font-sans selection:bg-[#FFD54F] selection:text-black">
       <Navbar />
       <main>
-        <Hero />
         <ProblemSolution />
         <HowItWorks />
         <Features />

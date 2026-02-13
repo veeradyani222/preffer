@@ -30,7 +30,6 @@ import {
     Bot // Imported Bot icon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { buildPortfolioUrl, getPortfolioBaseLabel } from '@/lib/publicUrls';
 
 // ============================================
 // TYPES
@@ -1843,7 +1842,7 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                                 : 'bg-stone-100 text-stone-400 cursor-not-allowed'
                                 }`}
                         >
-                            {aiManagerFinalized ? 'Finalised' : 'Finalize AI Agent'}
+                            {aiManagerFinalized ? 'Finalised' : 'Finalize AI Manager'}
                         </button>
                     </div>
                 </div>
@@ -2106,8 +2105,7 @@ function StepPublish({ portfolio, wizardData, onBack }: {
         }
     };
 
-    const portfolioUrl = buildPortfolioUrl(slug);
-    const portfolioBaseLabel = getPortfolioBaseLabel();
+    const portfolioUrl = typeof window !== 'undefined' ? `${window.location.origin}/p/${slug}` : `.../p/${slug}`;
 
     return (
         <div>
@@ -2146,7 +2144,7 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                 ) : (
                     <div className="max-w-xs mx-auto relative">
                         <div className="flex items-center bg-white border border-stone-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-stone-900 focus-within:border-stone-900 transition-all shadow-sm">
-                            <span className="pl-3 pr-1 text-stone-400 text-sm font-medium">{portfolioBaseLabel}</span>
+                            <span className="pl-3 pr-1 text-stone-400 text-sm font-medium">portfolio.com/</span>
                             <input
                                 type="text"
                                 value={slug}
