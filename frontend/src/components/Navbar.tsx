@@ -11,7 +11,7 @@ export default function Navbar() {
             <div className="w-full flex flex-wrap items-center justify-between mx-auto px-6 py-4">
                 <Link href="/" className="flex items-center space-x-2">
                     <span className="self-center text-xl font-bold tracking-tight text-gray-900">
-                        MyPortfolio<span className="text-gray-400 font-light">.app</span>
+                        Preffer<span className="text-gray-400 font-light">.me</span>
                     </span>
                 </Link>
                 <div className="flex md:order-2 space-x-3 md:space-x-0 rtl:space-x-reverse items-center justify-end w-full md:w-auto gap-4">

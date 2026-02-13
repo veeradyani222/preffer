@@ -10,7 +10,7 @@ export default function Footer() {
 
                     <div className="flex items-center space-x-2">
                         <span className="text-xl font-bold tracking-tight text-gray-900">
-                            MyPortfolio<span className="text-gray-400 font-light">.app</span>
+                            Preffer<span className="text-gray-400 font-light">.me</span>
                         </span>
                     </div>
 
@@ -23,7 +23,7 @@ export default function Footer() {
                 </div>
 
                 <div className="border-t border-gray-50 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-400">
-                    <p>&copy; {new Date().getFullYear()} MyPortfolio.app. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} prefer.me. All rights reserved.</p>
                     <p>Built with <span className="font-bold text-gray-600">Archestra</span> & <span className="font-bold text-gray-600">MCP</span></p>
                 </div>
             </div>

@@ -20,6 +20,9 @@ import ApiKeyService from '../services/apiKey.service';
 import pool from '../config/database';
 import logger from '../utils/logger';
 
+// Public-facing base URL for portfolio links (from env, no trailing slash)
+const PORTFOLIO_BASE_URL = (process.env.PORTFOLIO_BASE_URL || 'https://prefer.me').replace(/\/+$/, '');
+
 // ============================================
 // SECTION SCHEMAS + CONTENT GUIDANCE
 // (exposed to Archestra AI for high-quality content construction)
@@ -309,7 +312,7 @@ function formatPortfolioSummary(p: Portfolio): string {
     const sections = Array.isArray(p.sections) ? p.sections : [];
     const filledSections = sections.filter(s => s.content && Object.keys(s.content).length > 0);
     return [
-        `**${p.name || 'Untitled'}** (ID: \`${p.id}\`)`,
+        `**${p.name || 'Untitled'}**`,
         `- Status: ${p.status}`,
         `- Slug: ${p.slug || 'not published'}`,
         `- Type: ${p.portfolio_type}`,
@@ -325,13 +328,13 @@ function formatPortfolioDetail(p: Portfolio): string {
     const sections = Array.isArray(p.sections) ? p.sections : [];
     const sectionsList = sections.map((s, i) => {
         const hasContent = s.content && Object.keys(s.content).length > 0;
-        return `  ${i + 1}. **${s.title || s.type}** (type: \`${s.type}\`, id: \`${s.id}\`) — ${hasContent ? 'has content' : 'empty'}`;
+        return `  ${i + 1}. **${s.title || s.type}** (${s.type}) — ${hasContent ? 'has content' : 'empty'}`;
     }).join('\n');
 
     const lines = [
         `# ${p.name || 'Untitled Portfolio'}`,
         ``,
-        `- **ID**: \`${p.id}\``,
+
         `- **Status**: ${p.status}`,
         `- **Slug**: ${p.slug || 'not published'}`,
         `- **Type**: ${p.portfolio_type}`,
@@ -446,7 +449,7 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'get_portfolio_by_slug',
-        `Get a published portfolio by its public slug. Does not require authentication. Returns full portfolio details including all section content. Use this to inspect any published portfolio. The slug is the URL path segment, e.g. for myportfolio.app/john-doe the slug is "john-doe".`,
+        `Get a published portfolio by its public slug. Does not require authentication. Returns full portfolio details including all section content. Use this to inspect any published portfolio. The slug is the URL path segment, e.g. for ${PORTFOLIO_BASE_URL}/john-doe the slug is "john-doe".`,
         { slug: z.string().min(1).describe('The portfolio slug (URL path)') },
         async ({ slug }) => {
             try {
@@ -465,7 +468,7 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'create_portfolio',
-        `Create a new draft portfolio. Returns the new portfolio ID. The portfolio starts as a draft with no sections. After creating, use add_section to add sections and publish_portfolio to make it live. Costs credits on publish only.`,
+        `Create a new draft portfolio. The portfolio starts as a draft with no sections. After creating, IMMEDIATELY call recommend_sections to suggest which sections to add — do NOT ask the user what to do next or tell them to add sections themselves. Then proceed to build each recommended section one by one automatically. Costs credits on publish only.`,
         {
             name: z.string().min(1).max(255).describe('Portfolio display name, e.g. "John Doe Portfolio"'),
             portfolio_type: z.enum(['individual', 'company']).describe('"individual" for personal portfolios, "company" for business websites')
@@ -564,7 +567,7 @@ export function createMcpServer(): McpServer {
                 if (!userId) return errorResult('Authentication required');
 
                 await PortfolioService.delete(portfolio_id, userId);
-                return textResult(`Portfolio \`${portfolio_id}\` deleted successfully.`);
+                return textResult(`Portfolio deleted successfully.`);
             } catch (error: any) {
                 return errorResult(error.message);
             }
@@ -576,11 +579,11 @@ export function createMcpServer(): McpServer {
     // ------------------------------------------
     server.tool(
         'add_section',
-        `Add a new section to a portfolio. The section content must match the schema AND follow the content creation guidance for that section type. IMPORTANT: Call get_section_schemas first to see both the required JSON structure and writing guidelines for each type. Follow the guidance closely — it contains formatting rules, examples, and quality tips.
+        `Add a new section to a portfolio. The section content must match the schema AND follow the content creation guidance for that section type. IMPORTANT: Call get_section_schemas first to get the required JSON structure and writing guidelines — but do NOT show the schema or JSON structure to the user. Use it silently to construct proper content.
 
 Available section types: hero, about, services, skills, experience, projects, testimonials, contact, faq, pricing, team, menu, achievements, education.
 
-The section is appended at the end (before contact if contact exists).`,
+The section is appended at the end (before contact if contact exists). After successfully adding a section, IMMEDIATELY proceed to the next recommended section — do NOT ask the user if they want to continue or which section is next. Build and present the content for the next section automatically.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID'),
             section_type: z.string().describe('Section type (e.g. "hero", "about", "services")'),
@@ -628,7 +631,7 @@ The section is appended at the end (before contact if contact exists).`,
 
                 await PortfolioService.updateSections(portfolio_id, userId, sections);
 
-                return textResult(`Section **${sectionTitle}** (\`${section_type}\`) added with ID \`${newId}\`.\n\nPortfolio now has ${sections.length} sections.`);
+                return textResult(`Section **${sectionTitle}** added successfully! Portfolio now has ${sections.length} section(s).`);
             } catch (error: any) {
                 return errorResult(error.message);
             }
@@ -720,11 +723,11 @@ The section is appended at the end (before contact if contact exists).`,
     // ------------------------------------------
     server.tool(
         'get_section_schemas',
-        `Get the JSON content schemas AND content creation guidance for all 14 section types. Each entry shows:
-1. The exact JSON structure required for add_section / update_section
-2. Writing guidelines with formatting rules, examples, and quality tips
+        `Get the JSON content schemas AND content creation guidance for section types. Each entry shows the exact JSON structure required for add_section / update_section plus writing guidelines.
 
-ALWAYS call this before creating or updating sections. Follow both the structure AND guidance for high-quality content.`,
+ALWAYS call this before creating or updating sections. Follow both the structure AND guidance for high-quality content.
+
+IMPORTANT: This information is for YOUR internal use only — do NOT display schemas, JSON structures, or raw guidance text to the user. Use them silently to construct proper section content.`,
         {
             section_type: z.string().optional().describe('Optional: get schema for a specific section type only')
         },
@@ -756,7 +759,9 @@ ALWAYS call this before creating or updating sections. Follow both the structure
     // ------------------------------------------
     server.tool(
         'recommend_sections',
-        `Use AI to recommend the best sections for a portfolio based on the profession and description. Returns a list of recommended section types with reasoning. Useful when setting up a new portfolio to determine which sections to add.`,
+        `Use AI to recommend the best sections for a portfolio based on the profession and description. Returns a list of recommended section types with reasoning.
+
+After receiving recommendations, IMMEDIATELY proceed to add each section one by one. For each section: call get_section_schemas internally (do NOT show the schema to the user), draft high-quality content yourself based on the user's description/profession, present the draft to the user for approval, and then call add_section. Move to the next section automatically after each one is added — do NOT ask "which section is next" or "would you like to add the next section".`,
         {
             portfolio_type: z.enum(['individual', 'company']).describe('Portfolio type'),
             profession: z.string().describe('Profession or industry, e.g. "Web Developer", "Photography Studio"'),
@@ -781,7 +786,7 @@ ALWAYS call this before creating or updating sections. Follow both the structure
                 ).join('\n');
 
                 return textResult(
-                    `# Recommended Sections\n\n${sectionList}\n\n## Reasoning\n${result.reasoning}\n\n_Use \`add_section\` with each type to add them to your portfolio._`
+                    `# Recommended Sections\n\n${sectionList}\n\n## Reasoning\n${result.reasoning}\n\n_Now proceed to build each section one by one, starting with the first one._`
                 );
             } catch (error: any) {
                 return errorResult(error.message);
@@ -794,7 +799,7 @@ ALWAYS call this before creating or updating sections. Follow both the structure
     // ------------------------------------------
     server.tool(
         'publish_portfolio',
-        `Publish a draft portfolio with a slug, making it live at myportfolio.app/{slug}. This deducts credits from the user's balance. Use check_slug first to verify the slug is available. The portfolio must have at least hero and contact sections.`,
+        `Publish a draft portfolio with a slug, making it live at ${PORTFOLIO_BASE_URL}/{slug}. This deducts credits from the user's balance. Use check_slug first to verify the slug is available. The portfolio must have at least hero and contact sections.`,
         {
             portfolio_id: z.string().uuid().describe('Portfolio ID to publish'),
             slug: z.string().min(1).max(100).describe('URL slug for the published portfolio, e.g. "john-doe"')
@@ -812,9 +817,9 @@ ALWAYS call this before creating or updating sections. Follow both the structure
 
                 return textResult(
                     `Portfolio published! 🎉\n\n` +
-                    `- **URL**: myportfolio.app/${slug}\n` +
+                    `- **URL**: ${PORTFOLIO_BASE_URL}/${slug}\n` +
                     `- **Status**: published\n` +
-                    `- **Preview**: https://myportfolio.app/${slug}`
+                    `- **Preview**: ${PORTFOLIO_BASE_URL}/${slug}`
                 );
             } catch (error: any) {
                 return errorResult(error.message);
@@ -932,7 +937,7 @@ ALWAYS call this before creating or updating sections. Follow both the structure
                     values
                 );
 
-                return textResult(`AI manager settings updated for portfolio \`${portfolio_id}\`.`);
+                return textResult(`AI manager settings updated successfully!`);
             } catch (error: any) {
                 return errorResult(error.message);
             }

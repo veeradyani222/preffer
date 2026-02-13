@@ -35,7 +35,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'MyPortfolio.app',
+  title: 'Preffer',
   description: 'Showcase your work professionally.',
 };
 

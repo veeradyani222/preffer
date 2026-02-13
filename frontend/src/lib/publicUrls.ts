@@ -24,7 +24,7 @@ export function getPortfolioBaseLabel(): string {
         }
     }
 
-    return 'your-domain.com/';
+    return 'prefer.me/';
 }
 
 export function getSiteDisplayName(): string {
@@ -40,5 +40,5 @@ export function getSiteDisplayName(): string {
         }
     }
 
-    return 'your-domain.com';
+    return 'prefer.me';
 }
