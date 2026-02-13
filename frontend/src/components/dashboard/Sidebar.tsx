@@ -19,6 +19,7 @@ import {
     Edit2,
     Check,
     X,
+    BarChart3,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -95,6 +96,7 @@ export default function Sidebar() {
 
     const navItems = [
         { name: 'Dashboard', href: '/user/dashboard', icon: LayoutDashboard },
+        { name: 'Analytics', href: '/user/analytics', icon: BarChart3 },
         { name: 'Settings', href: '/user/settings', icon: Settings },
         { name: 'Credentials', href: '/user/credentials', icon: Key },
         { name: 'My Account', href: '/user/account', icon: UserIcon },

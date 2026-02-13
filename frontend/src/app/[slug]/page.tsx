@@ -44,6 +44,17 @@ export default function PublicPortfolioPage() {
         if (slug) fetchPortfolio();
     }, [slug]);
 
+    // Track page view (fire-and-forget)
+    useEffect(() => {
+        if (portfolio && slug) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/analytics/page-view`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug }),
+            }).catch(() => { /* silent */ });
+        }
+    }, [portfolio, slug]);
+
     const fetchPortfolio = async () => {
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portfolio/slug/${slug}`);

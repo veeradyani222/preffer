@@ -16,6 +16,7 @@ import PortfolioService, {
 } from '../services/portfolio.service.new';
 import { AIService, SECTION_LABELS } from '../services/ai.service';
 import { CreditsService, PLAN_LIMITS, Plan } from '../services/credits.service';
+import AnalyticsService from '../services/analytics.service';
 import ApiKeyService from '../services/apiKey.service';
 import pool from '../config/database';
 import logger from '../utils/logger';
@@ -1122,6 +1123,483 @@ IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to pub
                 );
 
                 return textResult(`Portfolio style updated! 🎨\n\n${changedParts.join('\n')}`);
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ==========================================
+    // ANALYTICS TOOLS
+    // ==========================================
+
+    // ------------------------------------------
+    // TOOL: get_analytics_overview
+    // ------------------------------------------
+    server.tool(
+        'get_analytics_overview',
+        `Get a high-level analytics overview across ALL of the user's portfolios. Returns aggregate stats (total views, unique visitors, AI chat sessions, total messages) plus 5-day trend numbers. Use this to give the user a quick snapshot of how their portfolios are performing overall.
+
+Returns:
+- total_views, unique_visitors, total_sessions, total_messages (all-time)
+- views_5d, sessions_5d (last 5 days — useful for spotting trends)
+
+IMPORTANT: Present the data conversationally. Don't dump raw numbers — highlight trends and notable stats.`,
+        {},
+        async (_args, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+
+                const stats = await AnalyticsService.getDashboardStats(userId);
+
+                const lines = [
+                    `# Analytics Overview`,
+                    ``,
+                    `| Metric | All-Time | Last 5 Days |`,
+                    `|--------|----------|-------------|`,
+                    `| Page Views | ${stats.total_views.toLocaleString()} | ${stats.views_5d.toLocaleString()} |`,
+                    `| Unique Visitors | ${stats.unique_visitors.toLocaleString()} | — |`,
+                    `| AI Chat Sessions | ${stats.total_sessions.toLocaleString()} | ${stats.sessions_5d.toLocaleString()} |`,
+                    `| Total Messages | ${stats.total_messages.toLocaleString()} | — |`,
+                ];
+
+                if (stats.total_views === 0 && stats.total_sessions === 0) {
+                    lines.push(``, `_No visitor data yet. The user should share their portfolio links to start getting traffic._`);
+                }
+
+                return textResult(lines.join('\n'));
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ------------------------------------------
+    // TOOL: get_portfolio_analytics
+    // ------------------------------------------
+    server.tool(
+        'get_portfolio_analytics',
+        `Get detailed analytics for a specific portfolio. Returns the same stats as get_analytics_overview but filtered to a single portfolio — views, unique visitors, sessions, messages, and 5-day trends.
+
+Use this when the user asks about a specific portfolio's performance (e.g. "how is my John Doe portfolio doing?"). Call get_portfolios first to find the portfolio ID.
+
+IMPORTANT: Do NOT show the portfolio ID to the user. Refer to it by name.`,
+        {
+            portfolio_id: z.string().uuid().describe('The portfolio UUID to get analytics for'),
+        },
+        async ({ portfolio_id }, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+
+                // Verify ownership
+                const portfolio = await PortfolioService.getById(portfolio_id, userId);
+                if (!portfolio) return errorResult('Portfolio not found or access denied');
+
+                const stats = await AnalyticsService.getDashboardStats(userId, portfolio_id);
+
+                const lines = [
+                    `# Analytics: ${portfolio.name || 'Untitled'}`,
+                    portfolio.slug ? `_Published at /${portfolio.slug}_` : `_Not yet published_`,
+                    ``,
+                    `| Metric | All-Time | Last 5 Days |`,
+                    `|--------|----------|-------------|`,
+                    `| Page Views | ${stats.total_views.toLocaleString()} | ${stats.views_5d.toLocaleString()} |`,
+                    `| Unique Visitors | ${stats.unique_visitors.toLocaleString()} | — |`,
+                    `| AI Chat Sessions | ${stats.total_sessions.toLocaleString()} | ${stats.sessions_5d.toLocaleString()} |`,
+                    `| Total Messages | ${stats.total_messages.toLocaleString()} | — |`,
+                ];
+
+                if (portfolio.has_ai_manager) {
+                    lines.push(``, `AI Manager: **${portfolio.ai_manager_name || 'enabled'}**`);
+                } else {
+                    lines.push(``, `_No AI Manager configured. Enabling one can boost visitor engagement._`);
+                }
+
+                return textResult(lines.join('\n'));
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ------------------------------------------
+    // TOOL: get_top_portfolios
+    // ------------------------------------------
+    server.tool(
+        'get_top_portfolios',
+        `Get a ranked list of the user's published portfolios by performance. Each portfolio includes: views, unique visitors, AI chat sessions, message count, and whether it has an AI manager enabled. Sorted by views descending.
+
+Use this when the user asks "which portfolio is performing best?" or wants to compare portfolios. Also useful for identifying underperforming portfolios that might need attention.
+
+IMPORTANT: Do NOT show portfolio IDs to the user. Refer to portfolios by name and slug.`,
+        {},
+        async (_args, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+
+                const portfolios = await AnalyticsService.getTopPortfolios(userId);
+
+                if (portfolios.length === 0) {
+                    return textResult('No published portfolios found. Portfolios need to be published before analytics are tracked.');
+                }
+
+                const lines = [
+                    `# Portfolio Rankings (by views)`,
+                    ``,
+                ];
+
+                portfolios.forEach((p, idx) => {
+                    lines.push(
+                        `### ${idx + 1}. ${p.name || 'Untitled'} (/${p.slug})`,
+                        `- Views: **${p.views}** (${p.unique_visitors} unique)`,
+                        `- Sessions: **${p.sessions}** | Messages: **${p.messages}**`,
+                        `- AI Manager: ${p.has_ai_manager ? '✅ enabled' : '❌ not enabled'}`,
+                        ``
+                    );
+                });
+
+                return textResult(lines.join('\n'));
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ------------------------------------------
+    // TOOL: get_visitor_conversations
+    // ------------------------------------------
+    server.tool(
+        'get_visitor_conversations',
+        `Retrieve recent AI manager chat conversations from visitors. Returns full message history for each session including visitor messages and AI responses, with timestamps and portfolio context.
+
+Optionally filter to a specific portfolio. Returns the most recent conversations first (up to the specified limit).
+
+Use this when the user asks:
+- "What are visitors asking about?"
+- "Show me recent chats"
+- "What questions do people have about my portfolio?"
+
+IMPORTANT: Do NOT expose session IDs or visitor IPs to the user. Summarize conversations naturally and focus on the content.`,
+        {
+            portfolio_id: z.string().uuid().optional().describe('Optional portfolio UUID to filter conversations. Omit for all portfolios.'),
+            limit: z.number().int().min(1).max(50).optional().describe('Number of conversations to return (default: 10, max: 50)'),
+        },
+        async ({ portfolio_id, limit: rawLimit }, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+                const limit = rawLimit ?? 10;
+
+                // Verify ownership if filtering by portfolio
+                if (portfolio_id) {
+                    const portfolio = await PortfolioService.getById(portfolio_id, userId);
+                    if (!portfolio) return errorResult('Portfolio not found or access denied');
+                }
+
+                const conversations = await AnalyticsService.getRecentConversations(userId, limit, portfolio_id);
+
+                if (conversations.length === 0) {
+                    return textResult('No conversations found. Visitors haven\'t chatted with your AI managers yet.');
+                }
+
+                const lines = [
+                    `# Recent Conversations (${conversations.length})`,
+                    ``,
+                ];
+
+                conversations.forEach((conv, idx) => {
+                    const startDate = new Date(conv.started_at).toLocaleString();
+                    lines.push(
+                        `### Conversation ${idx + 1} — ${conv.portfolio_name} (/${conv.portfolio_slug})`,
+                        `_${startDate} · ${conv.message_count} messages_`,
+                        ``
+                    );
+
+                    conv.messages.forEach(msg => {
+                        const role = msg.role === 'visitor' ? '🧑 Visitor' : '🤖 AI';
+                        // Truncate very long messages
+                        const content = msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content;
+                        lines.push(`**${role}**: ${content}`);
+                    });
+
+                    lines.push(``, `---`, ``);
+                });
+
+                return textResult(lines.join('\n'));
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ------------------------------------------
+    // TOOL: get_analytics_insights
+    // ------------------------------------------
+    server.tool(
+        'get_analytics_insights',
+        `Generate AI-powered business intelligence and insights from the user's analytics data. Uses a two-phase AI analysis to produce:
+
+1. **Executive Summary** — Key takeaway with numbers
+2. **Sentiment Analysis** — Positive/neutral/negative breakdown of visitor conversations
+3. **Interest Areas** — What topics visitors are most interested in, ranked by frequency
+4. **Top Questions** — Actual questions visitors asked in AI chats
+5. **Conversion Opportunities** — Where visitors showed hiring/buying/collaboration intent, with suggested actions
+6. **Recommendations** — Actionable, data-driven next steps
+
+Optionally filter to a specific portfolio for focused insights.
+
+⚠️ This tool calls Gemini AI and may take 5-15 seconds. Only call it when the user explicitly asks for insights, analysis, or recommendations — not for simple stat lookups.
+
+IMPORTANT: Present insights conversationally. Don't dump the raw structure — weave it into a narrative the user can act on.`,
+        {
+            portfolio_id: z.string().uuid().optional().describe('Optional portfolio UUID to focus insights on. Omit for cross-portfolio analysis.'),
+        },
+        async ({ portfolio_id }, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+
+                // Verify ownership if filtering
+                if (portfolio_id) {
+                    const portfolio = await PortfolioService.getById(portfolio_id, userId);
+                    if (!portfolio) return errorResult('Portfolio not found or access denied');
+                }
+
+                const insights = await AnalyticsService.generateInsights(userId, portfolio_id);
+
+                const lines = [
+                    `# Analytics Insights`,
+                    ``,
+                    `## Executive Summary`,
+                    insights.executive_summary,
+                    ``,
+                ];
+
+                // Sentiment
+                const total = insights.sentiment.positive + insights.sentiment.neutral + insights.sentiment.negative;
+                if (total > 0) {
+                    lines.push(
+                        `## Visitor Sentiment`,
+                        `- 😊 Positive: **${insights.sentiment.positive}** (${Math.round(insights.sentiment.positive / total * 100)}%)`,
+                        `- 😐 Neutral: **${insights.sentiment.neutral}** (${Math.round(insights.sentiment.neutral / total * 100)}%)`,
+                        `- 😟 Negative: **${insights.sentiment.negative}** (${Math.round(insights.sentiment.negative / total * 100)}%)`,
+                        ``
+                    );
+                }
+
+                // Interest areas
+                if (insights.interest_areas.length > 0) {
+                    lines.push(`## What Visitors Are Interested In`);
+                    insights.interest_areas.forEach(area => {
+                        lines.push(`- **${area.topic}**: ${area.percentage}% of interest (${area.count} mentions)`);
+                    });
+                    lines.push(``);
+                }
+
+                // Top questions
+                if (insights.top_questions.length > 0) {
+                    lines.push(`## Top Questions From Visitors`);
+                    insights.top_questions.forEach((q, i) => {
+                        lines.push(`${i + 1}. ${q}`);
+                    });
+                    lines.push(``);
+                }
+
+                // Conversion opportunities
+                if (insights.conversion_opportunities.length > 0) {
+                    lines.push(`## Conversion Opportunities`);
+                    insights.conversion_opportunities.forEach(opp => {
+                        const emoji = opp.potential === 'high' ? '🔥' : opp.potential === 'medium' ? '⚡' : '💡';
+                        lines.push(`${emoji} **${opp.description}** (${opp.potential} potential)`);
+                        lines.push(`   → Action: ${opp.action}`);
+                    });
+                    lines.push(``);
+                }
+
+                // Recommendations
+                if (insights.recommendations.length > 0) {
+                    lines.push(`## Recommended Actions`);
+                    insights.recommendations.forEach((rec, i) => {
+                        lines.push(`${i + 1}. ${rec}`);
+                    });
+                    lines.push(``);
+                }
+
+                return textResult(lines.join('\n'));
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ------------------------------------------
+    // TOOL: get_traffic_trends
+    // ------------------------------------------
+    server.tool(
+        'get_traffic_trends',
+        `Get daily page views and AI chat message counts over a configurable time window. Returns day-by-day numbers that you can use to describe trends like "views are up 40% this week" or "traffic peaked on Tuesday".
+
+Optionally filter to a specific portfolio. Supports 7, 14, or 30 day windows.
+
+Use this when the user asks:
+- "How's my traffic trending?"
+- "Am I getting more visitors lately?"
+- "Show me traffic for the last 2 weeks"
+
+IMPORTANT: Don't list raw daily numbers. Summarize the trend — rising, falling, flat, spikes on certain days, etc.`,
+        {
+            days: z.number().int().min(1).max(30).optional().describe('Number of days to look back (default: 7, max: 30)'),
+            portfolio_id: z.string().uuid().optional().describe('Optional portfolio UUID to filter. Omit for all portfolios.'),
+        },
+        async ({ days: rawDays, portfolio_id }, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+                const days = rawDays ?? 7;
+
+                if (portfolio_id) {
+                    const portfolio = await PortfolioService.getById(portfolio_id, userId);
+                    if (!portfolio) return errorResult('Portfolio not found or access denied');
+                }
+
+                const [viewsPerDay, messagesPerDay] = await Promise.all([
+                    AnalyticsService.getViewsPerDay(userId, days, portfolio_id),
+                    AnalyticsService.getMessagesPerDay(userId, days, portfolio_id),
+                ]);
+
+                const totalViews = viewsPerDay.reduce((sum, d) => sum + d.views, 0);
+                const totalMessages = messagesPerDay.reduce((sum, d) => sum + d.messages, 0);
+
+                const lines = [
+                    `# Traffic Trends (last ${days} days)`,
+                    ``,
+                    `**Totals**: ${totalViews} views, ${totalMessages} messages`,
+                    ``,
+                    `| Date | Views | Messages |`,
+                    `|------|-------|----------|`,
+                ];
+
+                const messagesByDate: Record<string, number> = {};
+                messagesPerDay.forEach(d => { messagesByDate[d.date] = d.messages; });
+
+                viewsPerDay.forEach(d => {
+                    const msgs = messagesByDate[d.date] || 0;
+                    lines.push(`| ${d.date} | ${d.views} | ${msgs} |`);
+                });
+
+                // Add simple trend description
+                if (viewsPerDay.length >= 2) {
+                    const firstHalf = viewsPerDay.slice(0, Math.floor(viewsPerDay.length / 2));
+                    const secondHalf = viewsPerDay.slice(Math.floor(viewsPerDay.length / 2));
+                    const firstAvg = firstHalf.reduce((s, d) => s + d.views, 0) / firstHalf.length;
+                    const secondAvg = secondHalf.reduce((s, d) => s + d.views, 0) / secondHalf.length;
+
+                    let trend = 'flat';
+                    if (secondAvg > firstAvg * 1.2) trend = 'trending upward 📈';
+                    else if (secondAvg < firstAvg * 0.8) trend = 'trending downward 📉';
+
+                    const peakDay = viewsPerDay.reduce((max, d) => d.views > max.views ? d : max, viewsPerDay[0]);
+
+                    lines.push(``, `**Trend**: Views are ${trend}.`);
+                    if (peakDay.views > 0) {
+                        lines.push(`**Peak day**: ${peakDay.date} with ${peakDay.views} views.`);
+                    }
+                }
+
+                return textResult(lines.join('\n'));
+            } catch (error: any) {
+                return errorResult(error.message);
+            }
+        }
+    );
+
+    // ------------------------------------------
+    // TOOL: compare_portfolios
+    // ------------------------------------------
+    server.tool(
+        'compare_portfolios',
+        `Compare two portfolios side-by-side on key metrics: views, unique visitors, AI chat sessions, messages, and whether each has an AI manager. Helps users understand which portfolio is performing better and why.
+
+Use this when the user asks:
+- "Compare my two portfolios"
+- "Which one is doing better?"
+- "How does portfolio X stack up against Y?"
+
+IMPORTANT: Do NOT show portfolio IDs. Refer to portfolios by name. Highlight the winner in each category and provide a brief takeaway.`,
+        {
+            portfolio_id_a: z.string().uuid().describe('First portfolio UUID to compare'),
+            portfolio_id_b: z.string().uuid().describe('Second portfolio UUID to compare'),
+        },
+        async ({ portfolio_id_a, portfolio_id_b }, extra) => {
+            try {
+                const userId = (extra as any)._userId;
+                if (!userId) return errorResult('Authentication required');
+
+                const [portfolioA, portfolioB] = await Promise.all([
+                    PortfolioService.getById(portfolio_id_a, userId),
+                    PortfolioService.getById(portfolio_id_b, userId),
+                ]);
+
+                if (!portfolioA) return errorResult('First portfolio not found or access denied');
+                if (!portfolioB) return errorResult('Second portfolio not found or access denied');
+
+                const [statsA, statsB] = await Promise.all([
+                    AnalyticsService.getDashboardStats(userId, portfolio_id_a),
+                    AnalyticsService.getDashboardStats(userId, portfolio_id_b),
+                ]);
+
+                const nameA = portfolioA.name || 'Portfolio A';
+                const nameB = portfolioB.name || 'Portfolio B';
+
+                const winner = (a: number, b: number) => {
+                    if (a > b) return `← **${nameA}**`;
+                    if (b > a) return `**${nameB}** →`;
+                    return 'Tied';
+                };
+
+                const lines = [
+                    `# Portfolio Comparison`,
+                    ``,
+                    `| Metric | ${nameA} | ${nameB} | Winner |`,
+                    `|--------|${'-'.repeat(nameA.length + 2)}|${'-'.repeat(nameB.length + 2)}|--------|`,
+                    `| Total Views | ${statsA.total_views} | ${statsB.total_views} | ${winner(statsA.total_views, statsB.total_views)} |`,
+                    `| Unique Visitors | ${statsA.unique_visitors} | ${statsB.unique_visitors} | ${winner(statsA.unique_visitors, statsB.unique_visitors)} |`,
+                    `| Chat Sessions | ${statsA.total_sessions} | ${statsB.total_sessions} | ${winner(statsA.total_sessions, statsB.total_sessions)} |`,
+                    `| Messages | ${statsA.total_messages} | ${statsB.total_messages} | ${winner(statsA.total_messages, statsB.total_messages)} |`,
+                    `| Views (5d) | ${statsA.views_5d} | ${statsB.views_5d} | ${winner(statsA.views_5d, statsB.views_5d)} |`,
+                    `| Sessions (5d) | ${statsA.sessions_5d} | ${statsB.sessions_5d} | ${winner(statsA.sessions_5d, statsB.sessions_5d)} |`,
+                    ``,
+                    `**AI Manager**: ${nameA} ${portfolioA.has_ai_manager ? '✅' : '❌'} | ${nameB} ${portfolioB.has_ai_manager ? '✅' : '❌'}`,
+                ];
+
+                // Overall verdict
+                const scoreA = (statsA.total_views > statsB.total_views ? 1 : 0)
+                    + (statsA.unique_visitors > statsB.unique_visitors ? 1 : 0)
+                    + (statsA.total_sessions > statsB.total_sessions ? 1 : 0)
+                    + (statsA.total_messages > statsB.total_messages ? 1 : 0);
+                const scoreB = 4 - scoreA - ((statsA.total_views === statsB.total_views ? 1 : 0)
+                    + (statsA.unique_visitors === statsB.unique_visitors ? 1 : 0)
+                    + (statsA.total_sessions === statsB.total_sessions ? 1 : 0)
+                    + (statsA.total_messages === statsB.total_messages ? 1 : 0));
+
+                if (scoreA > scoreB) {
+                    lines.push(``, `**Overall**: **${nameA}** leads in ${scoreA} of 4 key metrics.`);
+                } else if (scoreB > scoreA) {
+                    lines.push(``, `**Overall**: **${nameB}** leads in ${scoreB} of 4 key metrics.`);
+                } else {
+                    lines.push(``, `**Overall**: Both portfolios are performing similarly.`);
+                }
+
+                if (!portfolioA.has_ai_manager && statsB.total_sessions > 0) {
+                    lines.push(`\n💡 _Tip: Enabling an AI manager on "${nameA}" could boost engagement like "${nameB}"._`);
+                } else if (!portfolioB.has_ai_manager && statsA.total_sessions > 0) {
+                    lines.push(`\n💡 _Tip: Enabling an AI manager on "${nameB}" could boost engagement like "${nameA}"._`);
+                }
+
+                return textResult(lines.join('\n'));
             } catch (error: any) {
                 return errorResult(error.message);
             }

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/authenticate';
 import PortfolioService from '../services/portfolio.service.new';
 import PortfolioChatService from '../services/portfolio-chat.service';
 import { generateWithFallback } from '../services/gemini.service';
+import AnalyticsService from '../services/analytics.service';
 
 interface PublicChatMessage {
     role: 'user' | 'assistant';
@@ -216,11 +217,11 @@ class PortfolioController {
 
             const drafts = await PortfolioChatService.getUnfinished(authReq.user.userId);
             const count = await PortfolioChatService.getUnfinishedCount(authReq.user.userId);
-            
-            res.json({ 
-                portfolios: drafts, 
+
+            res.json({
+                portfolios: drafts,
                 count,
-                limit: 5 
+                limit: 5
             });
         } catch (error) {
             console.error('Get unfinished portfolios error:', error);
@@ -503,6 +504,11 @@ Return ONLY valid JSON in this exact shape:
             }
 
             const finalReply = parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
+
+            // Track conversations for analytics (fire-and-forget)
+            const visitorIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+            AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim()).catch(() => { });
+            AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply).catch(() => { });
 
             res.json({
                 reply: finalReply,

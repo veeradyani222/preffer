@@ -13,7 +13,14 @@ import {
     MoreHorizontal,
     FileText,
     Layout,
-    Globe
+    Globe,
+    Eye,
+    Users,
+    MessageSquare,
+    MessagesSquare,
+    TrendingUp,
+    TrendingDown,
+    ArrowRight,
 } from 'lucide-react';
 
 const COLOR_SCHEMES: Record<string, string[]> = {
@@ -52,6 +59,15 @@ interface UnfinishedData {
     limit: number;
 }
 
+interface DashboardStats {
+    total_views: number;
+    unique_visitors: number;
+    total_sessions: number;
+    total_messages: number;
+    views_5d: number;
+    sessions_5d: number;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -61,6 +77,7 @@ export default function DashboardPage() {
     const [unfinished, setUnfinished] = useState<UnfinishedData>({ portfolios: [], count: 0, limit: 5 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [analyticsStats, setAnalyticsStats] = useState<DashboardStats | null>(null);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -72,12 +89,14 @@ export default function DashboardPage() {
 
     const fetchPortfolios = async () => {
         try {
-            const [allData, unfinishedData] = await Promise.all([
+            const [allData, unfinishedData, analyticsData] = await Promise.all([
                 apiFetch('/portfolio/all'),
-                apiFetch('/portfolio/unfinished')
+                apiFetch('/portfolio/unfinished'),
+                apiFetch('/analytics/dashboard').catch(() => null),
             ]);
             setPortfolios(allData);
             setUnfinished(unfinishedData);
+            if (analyticsData?.stats) setAnalyticsStats(analyticsData.stats);
         } catch (err: any) {
             console.error('Failed to fetch portfolios:', err);
             setError(err.message || 'Failed to load portfolios');
@@ -140,6 +159,62 @@ export default function DashboardPage() {
                     {error}
                 </div>
             )}
+
+            {/* Quick Analytics Summary */}
+            <section>
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-[#9B9A97]">Analytics Overview</h2>
+                    <Link href="/user/analytics" className="text-xs text-[#37352f] hover:underline font-medium">
+                        View Details →
+                    </Link>
+                </div>
+
+                {analyticsStats ? (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {[
+                                { label: 'Total Views', value: analyticsStats.total_views, icon: Eye, trend: analyticsStats.views_5d, trendLabel: 'last 5 days' },
+                                { label: 'Unique Visitors', value: analyticsStats.unique_visitors, icon: Users },
+                                { label: 'Chat Sessions', value: analyticsStats.total_sessions, icon: MessagesSquare, trend: analyticsStats.sessions_5d, trendLabel: 'last 5 days' },
+                                { label: 'Messages', value: analyticsStats.total_messages, icon: MessageSquare },
+                            ].map((card) => (
+                                <div key={card.label} className="bg-white border border-[#E9E9E7] rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-[#9B9A97] font-medium">{card.label}</span>
+                                        <card.icon size={14} className="text-[#9B9A97]" />
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#37352f]">{card.value.toLocaleString()}</div>
+                                    {card.trend !== undefined && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                            {card.trend > 0 ? (
+                                                <TrendingUp size={12} className="text-green-600" />
+                                            ) : (
+                                                <TrendingDown size={12} className="text-[#9B9A97]" />
+                                            )}
+                                            <span className={`text-[11px] ${card.trend > 0 ? 'text-green-600' : 'text-[#9B9A97]'}`}>
+                                                {card.trend} {card.trendLabel}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        <Link
+                            href="/user/analytics"
+                            className="flex items-center justify-between border border-[#E9E9E7] rounded-lg px-4 py-3 hover:bg-[#FAFAF9] transition-colors group"
+                        >
+                            <p className="text-sm text-[#9B9A97]">View AI-powered insights, sentiment analysis, and visitor conversations</p>
+                            <ArrowRight size={16} className="text-[#9B9A97] group-hover:text-[#37352f] transition-colors shrink-0 ml-3" />
+                        </Link>
+                    </div>
+                ) : (
+                    <Link href="/user/analytics" className="block border border-[#E9E9E7] rounded-lg p-5 hover:bg-[#FAFAF9] transition-colors">
+                        <p className="text-sm text-[#9B9A97] mb-1">See detailed analytics, AI-powered insights, sentiment analysis, and all visitor conversations.</p>
+                        <span className="text-xs text-[#37352f] font-medium">Open Analytics Dashboard →</span>
+                    </Link>
+                )}
+            </section>
 
             {/* Recently Visited / Unfinished */}
             {unfinished.count > 0 && (

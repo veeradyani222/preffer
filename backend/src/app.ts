@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import portfolioRoutes from './routes/portfolio.routes';
 import wizardRoutes from './routes/wizard.routes';
 import assistantRoutes from './routes/assistant.routes';
+import analyticsRoutes from './routes/analytics.routes';
 import mcpRouter from './mcp/transport';
 import errorHandler from './middleware/errorHandler';
 import { apiLimiter, authLimiter } from './middleware/rateLimiter';
@@ -52,6 +53,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/wizard', wizardRoutes);
 app.use('/api/assistant', assistantRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/mcp', mcpRouter);
 
 // Root endpoint (quick deployment check)
