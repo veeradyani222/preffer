@@ -6,18 +6,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-// Connection pool configuration optimized for Neon serverless
 const poolConfig = {
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false // Required for Neon
+        rejectUnauthorized: false
     },
-    // Neon-optimized settings
-    max: 5, // Lower max for serverless (Neon recommends 5-10)
-    idleTimeoutMillis: 60000, // Keep connections alive longer (60s)
-    connectionTimeoutMillis: 20000, // Longer timeout for cold starts (20s)
-    keepAlive: true, // Enable TCP keepalive
-    keepAliveInitialDelayMillis: 10000, // Start keepalive after 10s
+    max: 5,
+    idleTimeoutMillis: 60000,
+    connectionTimeoutMillis: 20000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
 };
 const pool = new pg_1.Pool(poolConfig);
 // Connection error handling

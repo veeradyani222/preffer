@@ -10,6 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PortfolioService = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const credits_service_1 = require("./credits.service");
+const archestra_agent_service_1 = __importDefault(require("./archestra-agent.service"));
 // ============================================
 // PORTFOLIO SERVICE
 // ============================================
@@ -193,7 +194,17 @@ class PortfolioService {
                 await database_1.default.query("UPDATE portfolios SET status = 'draft', slug = NULL WHERE id = $1", [portfolioId]);
                 throw new Error('Insufficient credits');
             }
-            return this.formatPortfolio(updateResult.rows[0]);
+            const published = this.formatPortfolio(updateResult.rows[0]);
+            // ── Archestra Agent Integration ──
+            // Create/sync an Archestra agent when publishing with a finalized AI manager
+            if (hasAiManager && aiManagerFinalized && archestra_agent_service_1.default.isA2AEnabled()) {
+                const agent = await archestra_agent_service_1.default.createAgentOrFallback(published, published.id);
+                if (agent) {
+                    await database_1.default.query('UPDATE portfolios SET archestra_agent_id = $1 WHERE id = $2', [agent.id, published.id]);
+                    published.archestra_agent_id = agent.id;
+                }
+            }
+            return published;
         }
         catch (error) {
             await client.query('ROLLBACK');
@@ -231,6 +242,12 @@ class PortfolioService {
      * Delete a portfolio (only drafts, or reclaim credits for published)
      */
     static async delete(portfolioId, userId) {
+        var _a;
+        // Clean up Archestra agent if linked
+        const existing = await database_1.default.query('SELECT archestra_agent_id FROM portfolios WHERE id = $1 AND user_id = $2', [portfolioId, userId]);
+        if (((_a = existing.rows[0]) === null || _a === void 0 ? void 0 : _a.archestra_agent_id) && archestra_agent_service_1.default.isA2AEnabled()) {
+            archestra_agent_service_1.default.deleteAgent(existing.rows[0].archestra_agent_id).catch(() => { });
+        }
         const query = 'DELETE FROM portfolios WHERE id = $1 AND user_id = $2';
         await database_1.default.query(query, [portfolioId, userId]);
     }
@@ -255,6 +272,7 @@ class PortfolioService {
             ai_manager_has_portfolio_access: row.ai_manager_has_portfolio_access,
             ai_manager_finalized: row.ai_manager_finalized,
             ai_manager_custom_instructions: row.ai_manager_custom_instructions || null,
+            archestra_agent_id: row.archestra_agent_id || null,
             status: row.status,
             wizard_step: row.wizard_step,
             wizard_data: row.wizard_data || {},

@@ -5,6 +5,7 @@
 
 import pool from '../config/database';
 import { CreditsService, CREDIT_COSTS, PLAN_LIMITS } from './credits.service';
+import ArchestraAgentService from './archestra-agent.service';
 
 // ============================================
 // TYPES
@@ -54,6 +55,7 @@ export interface Portfolio {
     ai_manager_has_portfolio_access: boolean;
     ai_manager_finalized: boolean;
     ai_manager_custom_instructions: string | null;
+    archestra_agent_id: string | null;
     status: PortfolioStatus;
     wizard_step: number;
     wizard_data: any;
@@ -350,7 +352,22 @@ export class PortfolioService {
                 throw new Error('Insufficient credits');
             }
 
-            return this.formatPortfolio(updateResult.rows[0]);
+            const published = this.formatPortfolio(updateResult.rows[0]);
+
+            // ── Archestra Agent Integration ──
+            // Create/sync an Archestra agent when publishing with a finalized AI manager
+            if (hasAiManager && aiManagerFinalized && ArchestraAgentService.isA2AEnabled()) {
+                const agent = await ArchestraAgentService.createAgentOrFallback(published, published.id);
+                if (agent) {
+                    await pool.query(
+                        'UPDATE portfolios SET archestra_agent_id = $1 WHERE id = $2',
+                        [agent.id, published.id]
+                    );
+                    published.archestra_agent_id = agent.id;
+                }
+            }
+
+            return published;
 
         } catch (error) {
             await client.query('ROLLBACK');
@@ -392,6 +409,15 @@ export class PortfolioService {
      * Delete a portfolio (only drafts, or reclaim credits for published)
      */
     static async delete(portfolioId: string, userId: string): Promise<void> {
+        // Clean up Archestra agent if linked
+        const existing = await pool.query(
+            'SELECT archestra_agent_id FROM portfolios WHERE id = $1 AND user_id = $2',
+            [portfolioId, userId]
+        );
+        if (existing.rows[0]?.archestra_agent_id && ArchestraAgentService.isA2AEnabled()) {
+            ArchestraAgentService.deleteAgent(existing.rows[0].archestra_agent_id).catch(() => {});
+        }
+
         const query = 'DELETE FROM portfolios WHERE id = $1 AND user_id = $2';
         await pool.query(query, [portfolioId, userId]);
     }
@@ -417,6 +443,7 @@ export class PortfolioService {
             ai_manager_has_portfolio_access: row.ai_manager_has_portfolio_access,
             ai_manager_finalized: row.ai_manager_finalized,
             ai_manager_custom_instructions: row.ai_manager_custom_instructions || null,
+            archestra_agent_id: row.archestra_agent_id || null,
             status: row.status,
             wizard_step: row.wizard_step,
             wizard_data: row.wizard_data || {},

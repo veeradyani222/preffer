@@ -201,17 +201,17 @@ Make it easy for people to reach them.
 They may have already mentioned contact details. If not, ask them.
 
 **Your approach:**
-- Ask: "Would you like to add your email, phone, location, or any social links?"
+- Ask something like: "Would you like to add your email, phone, location, or any social links?" if not provided already.
 - Accept whatever contact information they provide.
 - Intelligently format it into heading and links.
-- Example: User says "My email is xyz@gmail.com, phone is 87635382764, instagram is @ashley123" → links: "Email: xyz@gmail.com, Phone: 87635382764, Instagram: @ashley123"
+- Example: User says "My email is xyz@gmail.com, phone is 87635382764, instagram is @ashley123" → links: "Email: xyz@gmail.com, Phone: 87635382764, Instagram: @ashley123" if they give only one, just add that.
 - Build with what you have for proposedContent.`,
     projects: `
 **PROJECTS/PORTFOLIO GUIDANCE:**
 Showcase their best work.
 
 **Check conversation:**
-They may have already mentioned their projects or work.
+They may have already mentioned their projects or work. You have to actually check. if no where mentioned then ask them about them. you cant add projects without any actual info.
 
 **Your approach:**
 - If not mentioned, ask: "What are some of your standout projects or key work you'd like to showcase?"

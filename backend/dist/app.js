@@ -11,6 +11,8 @@ const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const portfolio_routes_1 = __importDefault(require("./routes/portfolio.routes"));
 const wizard_routes_1 = __importDefault(require("./routes/wizard.routes"));
 const assistant_routes_1 = __importDefault(require("./routes/assistant.routes"));
+const analytics_routes_1 = __importDefault(require("./routes/analytics.routes"));
+const transport_1 = __importDefault(require("./mcp/transport"));
 const errorHandler_1 = __importDefault(require("./middleware/errorHandler"));
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const app = (0, express_1.default)();
@@ -48,6 +50,8 @@ app.use('/api/auth', auth_routes_1.default);
 app.use('/api/portfolio', portfolio_routes_1.default);
 app.use('/api/wizard', wizard_routes_1.default);
 app.use('/api/assistant', assistant_routes_1.default);
+app.use('/api/analytics', analytics_routes_1.default);
+app.use('/mcp', transport_1.default);
 // Root endpoint (quick deployment check)
 app.get('/', (req, res) => {
     res.json({

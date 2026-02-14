@@ -39,6 +39,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const portfolio_service_new_1 = __importDefault(require("../services/portfolio.service.new"));
 const portfolio_chat_service_1 = __importDefault(require("../services/portfolio-chat.service"));
 const gemini_service_1 = require("../services/gemini.service");
+const archestra_agent_service_1 = __importDefault(require("../services/archestra-agent.service"));
+const analytics_service_1 = __importDefault(require("../services/analytics.service"));
 class PortfolioController {
     static normalizeSegment(value) {
         return value
@@ -46,6 +48,69 @@ class PortfolioController {
             .trim()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
+    }
+    /**
+     * Direct Gemini chat fallback (when A2A agent is not available)
+     */
+    static async directGeminiChat(portfolio, message, safeHistory) {
+        var _a, _b;
+        const conversation = safeHistory
+            .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
+            .join('\n');
+        const context = PortfolioController.buildPortfolioContext(portfolio);
+        const customInstructions = (_a = portfolio.ai_manager_custom_instructions) === null || _a === void 0 ? void 0 : _a.trim();
+        const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
+
+Rules:
+- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
+- Answer only based on the portfolio context below.
+- Never just say unnecessary stuff based on the instructions, you have to reply based on the instructions, not just say them anywhere.
+- If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
+- Keep responses concise, helpful, and professional.
+- Never reveal raw JSON.
+${customInstructions ? '- Strictly follow the owner custom instructions included below.' : ''}
+
+Portfolio Context:
+${context}
+
+Owner Custom Instructions:
+${customInstructions || 'None'}
+
+Recent Conversation:
+${conversation || 'No prior conversation.'}
+
+Visitor's latest message:
+${message.trim()}
+
+Return ONLY valid JSON in this exact shape:
+{
+  "reply": "your response as ${portfolio.ai_manager_name}"
+}`;
+        const maxAttempts = 3;
+        let parsedReply = null;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const maxTokens = 700 + (attempt - 1) * 200;
+                const text = await (0, gemini_service_1.generateWithFallback)({ temperature: 0.5, maxOutputTokens: maxTokens, responseMimeType: 'application/json' }, prompt);
+                const parsed = PortfolioController.extractJsonFromAi(text);
+                const candidate = typeof (parsed === null || parsed === void 0 ? void 0 : parsed.reply) === 'string'
+                    ? parsed.reply
+                    : (typeof (parsed === null || parsed === void 0 ? void 0 : parsed.message) === 'string' ? parsed.message : '');
+                if (candidate && candidate.trim()) {
+                    parsedReply = candidate.trim();
+                    break;
+                }
+                throw new Error('Failed to parse JSON from AI response: missing reply field');
+            }
+            catch (error) {
+                const isJsonError = (_b = error === null || error === void 0 ? void 0 : error.message) === null || _b === void 0 ? void 0 : _b.includes('Failed to parse JSON');
+                if (isJsonError && attempt < maxAttempts) {
+                    continue;
+                }
+                throw error;
+            }
+        }
+        return parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
     }
     static buildPortfolioContext(portfolio) {
         const lines = [];
@@ -406,7 +471,7 @@ class PortfolioController {
      * Chat with public AI manager
      */
     static async chatWithPublicAiManager(req, res) {
-        var _a, _b;
+        var _a, _b, _c;
         try {
             const slug = req.params.slug;
             const aiManagerName = req.params.aiManagerName;
@@ -432,62 +497,27 @@ class PortfolioController {
                     .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
                     .slice(-12)
                 : [];
-            const conversation = safeHistory
-                .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
-                .join('\n');
-            const context = PortfolioController.buildPortfolioContext(portfolio);
-            const customInstructions = (_a = portfolio.ai_manager_custom_instructions) === null || _a === void 0 ? void 0 : _a.trim();
-            const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
-
-Rules:
-- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
-- Answer only based on the portfolio context below.
-- If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
-- Keep responses concise, helpful, and professional.
-- Never reveal raw JSON.
-${customInstructions ? '- Strictly follow the owner custom instructions included below.' : ''}
-
-Portfolio Context:
-${context}
-
-Owner Custom Instructions:
-${customInstructions || 'None'}
-
-Recent Conversation:
-${conversation || 'No prior conversation.'}
-
-Visitor's latest message:
-${message.trim()}
-
-Return ONLY valid JSON in this exact shape:
-{
-  "reply": "your response as ${portfolio.ai_manager_name}"
-}`;
-            const maxAttempts = 3;
-            let parsedReply = null;
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            let finalReply;
+            // ── Route through Archestra A2A if agent is linked ──
+            const agentId = portfolio.archestra_agent_id;
+            if (agentId && archestra_agent_service_1.default.isA2AEnabled()) {
                 try {
-                    const maxTokens = 700 + (attempt - 1) * 200;
-                    const text = await (0, gemini_service_1.generateWithFallback)({ temperature: 0.5, maxOutputTokens: maxTokens, responseMimeType: 'application/json' }, prompt);
-                    const parsed = PortfolioController.extractJsonFromAi(text);
-                    const candidate = typeof (parsed === null || parsed === void 0 ? void 0 : parsed.reply) === 'string'
-                        ? parsed.reply
-                        : (typeof (parsed === null || parsed === void 0 ? void 0 : parsed.message) === 'string' ? parsed.message : '');
-                    if (candidate && candidate.trim()) {
-                        parsedReply = candidate.trim();
-                        break;
-                    }
-                    throw new Error('Failed to parse JSON from AI response: missing reply field');
+                    const a2aResponse = await archestra_agent_service_1.default.sendA2AMessage(agentId, message.trim(), safeHistory, portfolio.ai_manager_name || 'AI Manager');
+                    finalReply = a2aResponse.text;
                 }
-                catch (error) {
-                    const isJsonError = (_b = error === null || error === void 0 ? void 0 : error.message) === null || _b === void 0 ? void 0 : _b.includes('Failed to parse JSON');
-                    if (isJsonError && attempt < maxAttempts) {
-                        continue;
-                    }
-                    throw error;
+                catch (a2aErr) {
+                    console.error('A2A chat failed, falling back to direct Gemini:', a2aErr.message);
+                    finalReply = await PortfolioController.directGeminiChat(portfolio, message, safeHistory);
                 }
             }
-            const finalReply = parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
+            else {
+                // ── Fallback: direct Gemini call (no Archestra agent linked) ──
+                finalReply = await PortfolioController.directGeminiChat(portfolio, message, safeHistory);
+            }
+            // Track conversations for analytics (fire-and-forget)
+            const visitorIp = ((_b = (_a = req.headers['x-forwarded-for']) === null || _a === void 0 ? void 0 : _a.split(',')[0]) === null || _b === void 0 ? void 0 : _b.trim()) || ((_c = req.socket) === null || _c === void 0 ? void 0 : _c.remoteAddress) || 'unknown';
+            analytics_service_1.default.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim()).catch(() => { });
+            analytics_service_1.default.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply).catch(() => { });
             res.json({
                 reply: finalReply,
                 aiManager: {

@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS portfolios (
     ai_manager_finalized BOOLEAN NOT NULL DEFAULT false,
     ai_manager_custom_instructions TEXT DEFAULT NULL,
     
+    -- Archestra Agent Integration
+    archestra_agent_id TEXT DEFAULT NULL,
+    
     -- Status
     status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
     

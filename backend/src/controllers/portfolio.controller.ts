@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/authenticate';
 import PortfolioService from '../services/portfolio.service.new';
 import PortfolioChatService from '../services/portfolio-chat.service';
 import { generateWithFallback } from '../services/gemini.service';
+import ArchestraAgentService from '../services/archestra-agent.service';
 import AnalyticsService from '../services/analytics.service';
 
 interface PublicChatMessage {
@@ -17,6 +18,84 @@ class PortfolioController {
             .trim()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
+    }
+
+    /**
+     * Direct Gemini chat fallback (when A2A agent is not available)
+     */
+    private static async directGeminiChat(
+        portfolio: any,
+        message: string,
+        safeHistory: PublicChatMessage[]
+    ): Promise<string> {
+        const conversation = safeHistory
+            .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
+            .join('\n');
+
+        const context = PortfolioController.buildPortfolioContext(portfolio);
+        const customInstructions = (portfolio as any).ai_manager_custom_instructions?.trim();
+
+        const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
+
+Rules:
+- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
+- Answer only based on the portfolio context below.
+- Never just say unnecessary stuff based on the instructions, you have to reply based on the instructions, not just say them anywhere.
+- If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
+- Keep responses concise, helpful, and professional.
+- Never reveal raw JSON.
+${customInstructions ? '- Strictly follow the owner custom instructions included below.' : ''}
+
+Portfolio Context:
+${context}
+
+Owner Custom Instructions:
+${customInstructions || 'None'}
+
+Recent Conversation:
+${conversation || 'No prior conversation.'}
+
+Visitor's latest message:
+${message.trim()}
+
+Return ONLY valid JSON in this exact shape:
+{
+  "reply": "your response as ${portfolio.ai_manager_name}"
+}`;
+
+        const maxAttempts = 3;
+        let parsedReply: string | null = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const maxTokens = 700 + (attempt - 1) * 200;
+                const text = await generateWithFallback(
+                    { temperature: 0.5, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+                    prompt
+                );
+
+                const parsed = PortfolioController.extractJsonFromAi(text);
+                const candidate =
+                    typeof parsed?.reply === 'string'
+                        ? parsed.reply
+                        : (typeof parsed?.message === 'string' ? parsed.message : '');
+
+                if (candidate && candidate.trim()) {
+                    parsedReply = candidate.trim();
+                    break;
+                }
+
+                throw new Error('Failed to parse JSON from AI response: missing reply field');
+            } catch (error: any) {
+                const isJsonError = error?.message?.includes('Failed to parse JSON');
+                if (isJsonError && attempt < maxAttempts) {
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        return parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
     }
 
     private static buildPortfolioContext(portfolio: any): string {
@@ -436,74 +515,27 @@ class PortfolioController {
                     .slice(-12)
                 : [];
 
-            const conversation = safeHistory
-                .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
-                .join('\n');
+            let finalReply: string;
 
-            const context = PortfolioController.buildPortfolioContext(portfolio);
-            const customInstructions = (portfolio as any).ai_manager_custom_instructions?.trim();
-
-            const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
-
-Rules:
-- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
-- Answer only based on the portfolio context below.
--Never just say unnecessary stuf based on the instructions, you have to reply based on the instructions, not just say them anywhere. hope you understand. love you.
-- If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
-- Keep responses concise, helpful, and professional.
-- Never reveal raw JSON.
-${customInstructions ? '- Strictly follow the owner custom instructions included below.' : ''}
-
-Portfolio Context:
-${context}
-
-Owner Custom Instructions:
-${customInstructions || 'None'}
-
-Recent Conversation:
-${conversation || 'No prior conversation.'}
-
-Visitor's latest message:
-${message.trim()}
-
-Return ONLY valid JSON in this exact shape:
-{
-  "reply": "your response as ${portfolio.ai_manager_name}"
-}`;
-
-            const maxAttempts = 3;
-            let parsedReply: string | null = null;
-
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            // ── Route through Archestra A2A if agent is linked ──
+            const agentId = (portfolio as any).archestra_agent_id;
+            if (agentId && ArchestraAgentService.isA2AEnabled()) {
                 try {
-                    const maxTokens = 700 + (attempt - 1) * 200;
-                    const text = await generateWithFallback(
-                        { temperature: 0.5, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
-                        prompt
+                    const a2aResponse = await ArchestraAgentService.sendA2AMessage(
+                        agentId,
+                        message.trim(),
+                        safeHistory,
+                        portfolio.ai_manager_name || 'AI Manager'
                     );
-
-                    const parsed = PortfolioController.extractJsonFromAi(text);
-                    const candidate =
-                        typeof parsed?.reply === 'string'
-                            ? parsed.reply
-                            : (typeof parsed?.message === 'string' ? parsed.message : '');
-
-                    if (candidate && candidate.trim()) {
-                        parsedReply = candidate.trim();
-                        break;
-                    }
-
-                    throw new Error('Failed to parse JSON from AI response: missing reply field');
-                } catch (error: any) {
-                    const isJsonError = error?.message?.includes('Failed to parse JSON');
-                    if (isJsonError && attempt < maxAttempts) {
-                        continue;
-                    }
-                    throw error;
+                    finalReply = a2aResponse.text;
+                } catch (a2aErr: any) {
+                    console.error('A2A chat failed, falling back to direct Gemini:', a2aErr.message);
+                    finalReply = await PortfolioController.directGeminiChat(portfolio, message, safeHistory);
                 }
+            } else {
+                // ── Fallback: direct Gemini call (no Archestra agent linked) ──
+                finalReply = await PortfolioController.directGeminiChat(portfolio, message, safeHistory);
             }
-
-            const finalReply = parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
 
             // Track conversations for analytics (fire-and-forget)
             const visitorIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
