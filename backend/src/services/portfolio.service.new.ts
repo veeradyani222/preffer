@@ -286,13 +286,25 @@ export class PortfolioService {
                 throw new Error('Portfolio is already published');
             }
 
-            // Calculate and deduct credits
-            const cost = CreditsService.getPortfolioCost(hasAiManager);
             const wizardData = portfolio.wizard_data || {};
-            const aiManagerName = hasAiManager ? wizardData.aiManagerName || null : null;
-            const aiManagerPersonality = hasAiManager ? wizardData.aiManagerPersonality || null : null;
-            const aiManagerHasPortfolioAccess = hasAiManager ? Boolean(wizardData.aiManagerHasPortfolioAccess) : false;
-            const aiManagerFinalized = hasAiManager ? Boolean(wizardData.aiManagerFinalized) : false;
+            // Resolve AI manager state from both request and persisted wizard data.
+            // Frontend snapshots can be stale at publish time, so trust finalized wizard state too.
+            const wizardHasAiManager = Boolean(wizardData.hasAiManager);
+            const wizardAiConfigured = Boolean(
+                wizardData.aiManagerName ||
+                wizardData.aiManagerPersonality ||
+                wizardData.aiManagerFinalized
+            );
+            const effectiveHasAiManager = Boolean(hasAiManager || wizardHasAiManager || wizardAiConfigured);
+
+            // Calculate and deduct credits
+            const cost = CreditsService.getPortfolioCost(effectiveHasAiManager);
+            const aiManagerName = effectiveHasAiManager ? wizardData.aiManagerName || null : null;
+            const aiManagerPersonality = effectiveHasAiManager ? wizardData.aiManagerPersonality || null : null;
+            const aiManagerHasPortfolioAccess = effectiveHasAiManager
+                ? Boolean(wizardData.aiManagerHasPortfolioAccess)
+                : false;
+            const aiManagerFinalized = effectiveHasAiManager ? Boolean(wizardData.aiManagerFinalized) : false;
 
             // Update portfolio to published
             const updateQuery = `
@@ -318,7 +330,7 @@ export class PortfolioService {
 
             const updateResult = await client.query(updateQuery, [
                 slug,
-                hasAiManager,
+                effectiveHasAiManager,
                 wizardData.name,
                 wizardData.profession || null,
                 wizardData.description || null,
@@ -356,7 +368,7 @@ export class PortfolioService {
 
             // ── Archestra Agent Integration ──
             // Create/sync an Archestra agent when publishing with a finalized AI manager
-            if (hasAiManager && aiManagerFinalized && ArchestraAgentService.isA2AEnabled()) {
+            if (effectiveHasAiManager && aiManagerFinalized && ArchestraAgentService.isA2AEnabled()) {
                 const agent = await ArchestraAgentService.createAgentOrFallback(published, published.id);
                 if (agent) {
                     await pool.query(

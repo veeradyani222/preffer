@@ -46,10 +46,15 @@ function loadConfig(): ArchestraConfig {
         } catch { /* ignore invalid URL */ }
     }
 
+    const hasOpenAiProxyPath = !!llmProxyUrl && /\/chat\/completions$/i.test(llmProxyUrl);
+    const hasGeminiProxyPath = !!llmProxyUrl && llmProxyUrl.includes('/v1/gemini/');
+    const hasBaseUrlAndProfile = !!baseUrl && !!profileId;
+    const canUseLlmProxy = !!llmProxyUrl && (hasOpenAiProxyPath || hasGeminiProxyPath || hasBaseUrlAndProfile);
+
     return {
         llmProxyUrl,
         profileId,
-        useLlmProxy: isDev && !!llmProxyUrl,
+        useLlmProxy: isDev && canUseLlmProxy,
         baseUrl,
         apiKey,
         a2aToken,

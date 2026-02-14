@@ -519,7 +519,7 @@ Return ONLY valid JSON in this exact shape:
 
             // ── Route through Archestra A2A if agent is linked ──
             const agentId = (portfolio as any).archestra_agent_id;
-            if (agentId && ArchestraAgentService.isA2AEnabled()) {
+            if (agentId && ArchestraAgentService.isA2AEnabled() && ArchestraAgentService.isAgentA2ACompatible(agentId)) {
                 try {
                     const a2aResponse = await ArchestraAgentService.sendA2AMessage(
                         agentId,

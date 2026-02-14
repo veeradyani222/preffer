@@ -2086,7 +2086,12 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                     },
                     body: JSON.stringify({
                         slug,
-                        hasAiManager: wizardData?.hasAiManager || false
+                        hasAiManager: Boolean(
+                            wizardData?.hasAiManager ||
+                            portfolio.has_ai_manager ||
+                            portfolio.ai_manager_finalized ||
+                            portfolio.ai_manager_name
+                        )
                     })
                 }
             );

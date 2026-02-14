@@ -17,6 +17,7 @@ async function backfill() {
         process.exit(1);
     }
     console.log('🔍 Finding published portfolios with finalized AI managers but no Archestra agent...\n');
+    const force = process.env.BACKFILL_FORCE === 'true';
     const result = await database_1.default.query(`
         SELECT id, name, slug, profession, description, sections, theme,
                has_ai_manager, ai_manager_name, ai_manager_personality,
@@ -27,7 +28,7 @@ async function backfill() {
           AND has_ai_manager = true
           AND ai_manager_finalized = true
           AND ai_manager_name IS NOT NULL
-          AND (archestra_agent_id IS NULL OR archestra_agent_id = '')
+          AND (${force ? 'true' : "(archestra_agent_id IS NULL OR archestra_agent_id = '')"})
     `);
     if (result.rows.length === 0) {
         console.log('✅ No portfolios need backfilling. All done!');
