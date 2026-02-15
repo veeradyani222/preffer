@@ -5,6 +5,9 @@ import PortfolioChatService from '../services/portfolio-chat.service';
 import { generateWithFallback } from '../services/gemini.service';
 import ArchestraAgentService from '../services/archestra-agent.service';
 import AnalyticsService from '../services/analytics.service';
+import AICapabilityService from '../services/ai-capability.service';
+import { AICapabilityKey, AI_CAPABILITY_KEYS, isAICapabilityKey } from '../constants/ai-capabilities';
+import pool from '../config/database';
 
 interface PublicChatMessage {
     role: 'user' | 'assistant';
@@ -20,13 +23,61 @@ class PortfolioController {
             .replace(/^-+|-+$/g, '');
     }
 
+    private static normalizeCapabilityPayload(raw: any): Array<{
+        capability_key: AICapabilityKey;
+        enabled: boolean;
+        settings_json?: Record<string, any>;
+    }> {
+        if (!raw) return [];
+
+        if (Array.isArray(raw)) {
+            return raw
+                .filter((item) => item && isAICapabilityKey(item.capability_key || item.capabilityKey))
+                .map((item) => ({
+                    capability_key: (item.capability_key || item.capabilityKey) as AICapabilityKey,
+                    enabled: Boolean(item.enabled),
+                    settings_json: item.settings_json || item.settings || {},
+                }));
+        }
+
+        if (typeof raw === 'object') {
+            return Object.entries(raw as Record<string, unknown>)
+                .filter(([key]) => isAICapabilityKey(key))
+                .map(([key, value]) => {
+                    let enabled = Boolean(value);
+                    let settingsJson: Record<string, any> = {};
+
+                    if (value && typeof value === 'object') {
+                        const obj = value as Record<string, unknown>;
+                        if (typeof obj.enabled === 'boolean') {
+                            enabled = obj.enabled;
+                        }
+
+                        const nestedSettings = obj.settings_json ?? obj.settings;
+                        if (nestedSettings && typeof nestedSettings === 'object') {
+                            settingsJson = nestedSettings as Record<string, any>;
+                        }
+                    }
+
+                    return {
+                        capability_key: key as AICapabilityKey,
+                        enabled,
+                        settings_json: settingsJson,
+                    };
+                });
+        }
+
+        return [];
+    }
+
     /**
      * Direct Gemini chat fallback (when A2A agent is not available)
      */
     private static async directGeminiChat(
         portfolio: any,
         message: string,
-        safeHistory: PublicChatMessage[]
+        safeHistory: PublicChatMessage[],
+        analyticsContext?: string
     ): Promise<string> {
         const conversation = safeHistory
             .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
@@ -34,6 +85,7 @@ class PortfolioController {
 
         const context = PortfolioController.buildPortfolioContext(portfolio);
         const customInstructions = (portfolio as any).ai_manager_custom_instructions?.trim();
+        const capabilityPolicy = PortfolioController.buildCapabilityPolicy(portfolio);
 
         const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
 
@@ -49,8 +101,14 @@ ${customInstructions ? '- Strictly follow the owner custom instructions included
 Portfolio Context:
 ${context}
 
+Capability Policy:
+${capabilityPolicy}
+
 Owner Custom Instructions:
 ${customInstructions || 'None'}
+
+Private Analytics Context (for response quality; share only when relevant):
+${analyticsContext || 'No analytics context available.'}
 
 Recent Conversation:
 ${conversation || 'No prior conversation.'}
@@ -96,6 +154,35 @@ Return ONLY valid JSON in this exact shape:
         }
 
         return parsedReply || `Hi, I'm ${portfolio.ai_manager_name}. I can help with portfolio questions.`;
+    }
+
+    private static buildCapabilityPolicy(portfolio: any): string {
+        const raw = portfolio?.wizard_data?.aiCapabilities || {};
+        const enabled = AI_CAPABILITY_KEYS.filter((key) => Boolean(raw?.[key]?.enabled));
+        if (enabled.length === 0) {
+            return 'No structured capability tools are enabled. Keep chat helpful and informational.';
+        }
+
+        const lines: string[] = [
+            `Enabled capabilities: ${enabled.join(', ')}`,
+            '- Ask for missing details once and keep requirements minimal.',
+            '- One contact method (email or phone) is enough when needed.',
+            '- If visitor declines contact details, continue helping without pressure.',
+            '- Acknowledge support/unknown FAQ escalations clearly.',
+            '- Never mention internal tools or whether tools are enabled/disabled.',
+            '- Infer intent from natural language semantics, not only explicit keywords.',
+            '- Capture and escalation are handled automatically by backend systems.',
+            '- Summarize what was captured in plain language when intent is actionable.',
+            '- Ask one concise follow-up if required details are missing.',
+            '- Do not claim external actions are complete when they are not.',
+        ];
+
+        const appointmentSettings = raw?.appointment_requests?.settings;
+        if (appointmentSettings) {
+            lines.push(`Appointment schedule settings: ${JSON.stringify(appointmentSettings)}`);
+        }
+
+        return lines.join('\n');
     }
 
     private static buildPortfolioContext(portfolio: any): string {
@@ -514,8 +601,19 @@ Return ONLY valid JSON in this exact shape:
                     .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
                     .slice(-12)
                 : [];
+            const conversationContext = safeHistory
+                .filter((item) => item.role === 'user')
+                .map((item) => `visitor: ${item.content}`)
+                .join('\n')
+                .slice(-2500);
 
             let finalReply: string;
+            let analyticsContext = '';
+            try {
+                analyticsContext = await AnalyticsService.getAgentChatContext(portfolio.id);
+            } catch {
+                // Non-blocking: chat continues even if analytics context fails.
+            }
 
             // ── Route through Archestra A2A if agent is linked ──
             const agentId = (portfolio as any).archestra_agent_id;
@@ -525,22 +623,43 @@ Return ONLY valid JSON in this exact shape:
                         agentId,
                         message.trim(),
                         safeHistory,
-                        portfolio.ai_manager_name || 'AI Manager'
+                        portfolio.ai_manager_name || 'AI Manager',
+                        analyticsContext
                     );
                     finalReply = a2aResponse.text;
                 } catch (a2aErr: any) {
                     console.error('A2A chat failed, falling back to direct Gemini:', a2aErr.message);
-                    finalReply = await PortfolioController.directGeminiChat(portfolio, message, safeHistory);
+                    finalReply = await PortfolioController.directGeminiChat(
+                        portfolio,
+                        message,
+                        safeHistory,
+                        analyticsContext
+                    );
                 }
             } else {
                 // ── Fallback: direct Gemini call (no Archestra agent linked) ──
-                finalReply = await PortfolioController.directGeminiChat(portfolio, message, safeHistory);
+                finalReply = await PortfolioController.directGeminiChat(
+                    portfolio,
+                    message,
+                    safeHistory,
+                    analyticsContext
+                );
             }
 
             // Track conversations for analytics (fire-and-forget)
             const visitorIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
-            AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim()).catch(() => { });
+            const sessionPromise = AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim());
             AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply).catch(() => { });
+
+            sessionPromise
+                .then((sessionId) => AICapabilityService.captureFromConversation({
+                    portfolioId: portfolio.id,
+                    visitorMessage: message.trim(),
+                    aiReply: finalReply,
+                    sessionId,
+                    conversationContext,
+                }))
+                .catch(() => { });
 
             res.json({
                 reply: finalReply,
@@ -552,6 +671,146 @@ Return ONLY valid JSON in this exact shape:
         } catch (error) {
             console.error('Public AI manager chat error:', error);
             res.status(500).json({ error: 'Failed to chat with AI manager' });
+        }
+    }
+
+    static async getAICapabilities(req: Request, res: Response) {
+        try {
+            const authReq = req as AuthRequest;
+            const userId = authReq.user?.userId;
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+            const portfolioId = req.params.id as string;
+            const owned = await AICapabilityService.getPortfolioOwnedBy(portfolioId, userId);
+            if (!owned) return res.status(404).json({ error: 'Portfolio not found' });
+
+            const capabilities = await AICapabilityService.getCapabilities(portfolioId);
+            return res.json({ portfolioId, capabilities });
+        } catch (error) {
+            console.error('Get AI capabilities error:', error);
+            return res.status(500).json({ error: 'Failed to get AI capabilities' });
+        }
+    }
+
+    static async upsertAICapabilities(req: Request, res: Response) {
+        try {
+            const authReq = req as AuthRequest;
+            const userId = authReq.user?.userId;
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+            const portfolioId = req.params.id as string;
+            const owned = await AICapabilityService.getPortfolioOwnedBy(portfolioId, userId);
+            if (!owned) return res.status(404).json({ error: 'Portfolio not found' });
+
+            const incoming = PortfolioController.normalizeCapabilityPayload(
+                req.body?.capabilities ?? req.body
+            );
+
+            const capabilities = await AICapabilityService.upsertCapabilities(portfolioId, incoming);
+            const capabilityMap = capabilities.reduce((acc, item) => {
+                acc[item.capability_key] = {
+                    enabled: item.enabled,
+                    settings: item.settings_json || {},
+                };
+                return acc;
+            }, {} as Record<string, any>);
+
+            await pool.query(
+                `UPDATE portfolios
+                 SET wizard_data = jsonb_set(COALESCE(wizard_data, '{}'::jsonb), '{aiCapabilities}', $1::jsonb, true),
+                     updated_at = NOW()
+                 WHERE id = $2`,
+                [JSON.stringify(capabilityMap), portfolioId]
+            );
+
+            const portfolio = await PortfolioService.getById(portfolioId, userId);
+            if (portfolio?.status === 'published' && portfolio.archestra_agent_id && ArchestraAgentService.isA2AEnabled()) {
+                ArchestraAgentService.updateAgent(portfolio.archestra_agent_id, portfolio).catch(() => { });
+            }
+
+            return res.json({ portfolioId, capabilities });
+        } catch (error) {
+            console.error('Upsert AI capabilities error:', error);
+            return res.status(500).json({ error: 'Failed to update AI capabilities' });
+        }
+    }
+
+    static async listAICapabilityRecords(req: Request, res: Response) {
+        try {
+            const authReq = req as AuthRequest;
+            const userId = authReq.user?.userId;
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+            const portfolioId = req.params.id as string;
+            const capability = req.params.capability as string;
+            if (!isAICapabilityKey(capability)) {
+                return res.status(400).json({ error: `Invalid capability. Allowed: ${AI_CAPABILITY_KEYS.join(', ')}` });
+            }
+
+            const owned = await AICapabilityService.getPortfolioOwnedBy(portfolioId, userId);
+            if (!owned) return res.status(404).json({ error: 'Portfolio not found' });
+
+            const limit = Number(req.query.limit || 100);
+            const records = await AICapabilityService.listRecords(portfolioId, capability, limit);
+            return res.json({ portfolioId, capability, records });
+        } catch (error) {
+            console.error('List AI capability records error:', error);
+            return res.status(500).json({ error: 'Failed to list capability records' });
+        }
+    }
+
+    static async updateAICapabilityRecordStatus(req: Request, res: Response) {
+        try {
+            const authReq = req as AuthRequest;
+            const userId = authReq.user?.userId;
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+            const portfolioId = req.params.id as string;
+            const capability = req.params.capability as string;
+            const recordId = req.params.recordId as string;
+            if (!isAICapabilityKey(capability)) {
+                return res.status(400).json({ error: `Invalid capability. Allowed: ${AI_CAPABILITY_KEYS.join(', ')}` });
+            }
+
+            const owned = await AICapabilityService.getPortfolioOwnedBy(portfolioId, userId);
+            if (!owned) return res.status(404).json({ error: 'Portfolio not found' });
+
+            const status = String(req.body?.status || '').trim();
+            const notes = req.body?.notes ? String(req.body.notes) : undefined;
+            if (!status) return res.status(400).json({ error: 'status is required' });
+
+            const updated = await AICapabilityService.updateRecordStatus(portfolioId, capability, recordId, status, notes);
+            if (!updated) return res.status(404).json({ error: 'Record not found' });
+
+            return res.json({ portfolioId, capability, record: updated });
+        } catch (error) {
+            console.error('Update AI capability status error:', error);
+            return res.status(500).json({ error: 'Failed to update record status' });
+        }
+    }
+
+    static async getAIToolEvents(req: Request, res: Response) {
+        try {
+            const authReq = req as AuthRequest;
+            const userId = authReq.user?.userId;
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+            const portfolioId = req.params.id as string;
+            const owned = await AICapabilityService.getPortfolioOwnedBy(portfolioId, userId);
+            if (!owned) return res.status(404).json({ error: 'Portfolio not found' });
+
+            const statusQuery = String(req.query.status || '').trim().toLowerCase();
+            const status = (statusQuery === 'success' || statusQuery === 'error')
+                ? (statusQuery as 'success' | 'error')
+                : undefined;
+            const capabilityQuery = String(req.query.capability || '').trim();
+            const capability = isAICapabilityKey(capabilityQuery) ? capabilityQuery : undefined;
+            const limit = Number(req.query.limit || 100);
+            const events = await AICapabilityService.listToolEvents(portfolioId, limit, status, capability);
+            return res.json({ portfolioId, events });
+        } catch (error) {
+            console.error('Get AI tool events error:', error);
+            return res.status(500).json({ error: 'Failed to get tool events' });
         }
     }
 

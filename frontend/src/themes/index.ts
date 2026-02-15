@@ -84,7 +84,7 @@ export function generateMinimalTheme(colorScheme: ColorScheme): Theme {
             },
         },
         spacing: {
-            section: '6rem',
+            section: '3rem',
             card: '2rem',
             element: '1.5rem',
             padding: '2rem',
@@ -136,7 +136,7 @@ export function generateTechieTheme(colorScheme: ColorScheme): Theme {
             },
         },
         spacing: {
-            section: '5rem',
+            section: '3rem',
             card: '1.5rem',
             element: '1rem',
             padding: '1.5rem',
@@ -190,7 +190,7 @@ export function generateElegantTheme(colorScheme: ColorScheme): Theme {
             },
         },
         spacing: {
-            section: '8rem', // More breathing room
+            section: '3.5rem',
             card: '3rem',
             element: '2rem',
             padding: '2.5rem',
@@ -243,3 +243,15 @@ export const defaultTheme: Theme = generateMinimalTheme({
     name: 'Default',
     colors: ['#1a1a1a', '#4a4a4a', '#e5e5e5', '#ffffff'],
 });
+
+/**
+ * Invert color scheme for Dark/Light mode toggle
+ * Swaps the palette: [darkest, dark, medium, lightest] -> [lightest, medium, dark, darkest]
+ * This is a simplistic inversion, but works because our themes are built on this 4-color structure.
+ */
+export function invertColorScheme(colorScheme: ColorScheme): ColorScheme {
+    return {
+        name: colorScheme.name,
+        colors: [...colorScheme.colors].reverse()
+    };
+}

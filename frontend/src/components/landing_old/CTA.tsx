@@ -25,7 +25,7 @@ export default function CTA() {
                             onClick={loginWithGoogle}
                             className="inline-flex items-center justify-center px-10 py-5 text-lg font-bold text-black bg-[#FFD54F] rounded-full hover:bg-[#FFC107] transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
                         >
-                            Create My AI Manager
+                            Create My AI Representative
                             <ArrowRight className="ml-2 w-6 h-6" />
                         </button>
                         <p className="text-gray-500 font-medium">No coding. No setup. Just chat.</p>

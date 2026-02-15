@@ -16,6 +16,24 @@ const transport_1 = __importDefault(require("./mcp/transport"));
 const errorHandler_1 = __importDefault(require("./middleware/errorHandler"));
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const app = (0, express_1.default)();
+// If we're behind a reverse proxy (Vercel/ALB/API Gateway/Cloudflare), trust it so
+// req.ip is derived from X-Forwarded-For and rate limiting can key correctly.
+// Default: enabled in production, off elsewhere. Override via TRUST_PROXY.
+const trustProxyEnv = process.env.TRUST_PROXY;
+if (trustProxyEnv !== undefined) {
+    const v = String(trustProxyEnv).trim().toLowerCase();
+    if (v === 'true')
+        app.set('trust proxy', true);
+    else if (v === 'false')
+        app.set('trust proxy', false);
+    else if (/^\d+$/.test(v))
+        app.set('trust proxy', parseInt(v, 10));
+    else
+        app.set('trust proxy', trustProxyEnv);
+}
+else if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
 // ============================================
 // SECURITY MIDDLEWARE (apply first)
 // ============================================

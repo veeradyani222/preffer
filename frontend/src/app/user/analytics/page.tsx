@@ -34,6 +34,9 @@ interface DashboardStats {
     total_messages: number;
     views_5d: number;
     sessions_5d: number;
+    messages_5d?: number;
+    avg_messages_per_session?: number;
+    visitor_to_chat_rate?: number;
 }
 
 interface DailyViews { date: string; views: number; }
@@ -271,8 +274,8 @@ function ConversationItem({ session }: { session: ConversationSession }) {
                     {session.messages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.role === 'visitor' ? 'justify-start' : 'justify-end'}`}>
                             <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${msg.role === 'visitor'
-                                    ? 'bg-white border border-[#E9E9E7] text-[#37352f]'
-                                    : 'bg-[#37352f] text-white'
+                                ? 'bg-white border border-[#E9E9E7] text-[#37352f]'
+                                : 'bg-[#37352f] text-white'
                                 }`}>
                                 <p className="text-xs font-medium mb-1 opacity-60">{msg.role === 'visitor' ? '👤 Visitor' : '🤖 AI'}</p>
                                 {msg.content}
@@ -428,7 +431,10 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                                                 {stats.sessions_5d > 0 ? <TrendingUp size={11} className="text-green-500" /> : <TrendingDown size={11} className="text-[#E3E2E0]" />}
                                             </div>
                                             <p className="text-xl font-bold text-[#37352f]">{stats.total_sessions}</p>
-                                            <p className="text-[10px] text-[#9B9A97]">AI Sessions ({stats.sessions_5d} last 5d)</p>
+                                            <p className="text-[10px] text-[#9B9A97]">
+                                                AI Sessions ({stats.sessions_5d} last 5d){' '}
+                                                {typeof stats.visitor_to_chat_rate === 'number' ? `• ${stats.visitor_to_chat_rate}% visitor→chat` : ''}
+                                            </p>
                                         </div>
                                         <div className="bg-white border border-[#E9E9E7] rounded-lg p-3">
                                             <div className="flex items-center justify-between mb-1">
@@ -436,7 +442,11 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                                                 {stats.total_messages > 0 ? <TrendingUp size={11} className="text-green-500" /> : <TrendingDown size={11} className="text-[#E3E2E0]" />}
                                             </div>
                                             <p className="text-xl font-bold text-[#37352f]">{stats.total_messages}</p>
-                                            <p className="text-[10px] text-[#9B9A97]">AI Messages</p>
+                                            <p className="text-[10px] text-[#9B9A97]">
+                                                AI Messages
+                                                {typeof stats.messages_5d === 'number' ? ` (${stats.messages_5d} last 5d)` : ''}
+                                                {typeof stats.avg_messages_per_session === 'number' ? ` • ${stats.avg_messages_per_session}/session` : ''}
+                                            </p>
                                         </div>
                                     </>
                                 )}
@@ -635,7 +645,20 @@ export default function AnalyticsPage() {
         { label: 'Unique Visitors', value: overallStats.unique_visitors, sub: 'all time', icon: Users, trend: overallStats.unique_visitors > 0 },
         ...(hasAnyAI ? [
             { label: 'AI Sessions', value: overallStats.total_sessions, sub: `${overallStats.sessions_5d} last 5d`, icon: MessageSquare, trend: overallStats.sessions_5d > 0 },
-            { label: 'AI Messages', value: overallStats.total_messages, sub: 'total exchanged', icon: MessagesSquare, trend: overallStats.total_messages > 0 },
+            {
+                label: 'AI Messages',
+                value: overallStats.total_messages,
+                sub: `${overallStats.messages_5d || 0} last 5d • ${overallStats.avg_messages_per_session || 0}/session`,
+                icon: MessagesSquare,
+                trend: overallStats.total_messages > 0
+            },
+            {
+                label: 'Visitor→Chat Rate',
+                value: `${overallStats.visitor_to_chat_rate || 0}%`,
+                sub: 'sessions per unique visitor',
+                icon: TrendingUp,
+                trend: (overallStats.visitor_to_chat_rate || 0) > 0
+            },
         ] : []),
     ];
 
@@ -656,7 +679,7 @@ export default function AnalyticsPage() {
             ) : (
                 <>
                     {/* Overall Stat Cards */}
-                    <div className={`grid gap-3 ${hasAnyAI ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
+                    <div className={`grid gap-3 ${hasAnyAI ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2'}`}>
                         {overallCards.map((card) => (
                             <div key={card.label} className="bg-white border border-[#E9E9E7] rounded-lg p-4 hover:shadow-sm transition-shadow">
                                 <div className="flex items-center justify-between mb-2">

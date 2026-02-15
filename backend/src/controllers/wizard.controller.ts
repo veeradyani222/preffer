@@ -11,6 +11,9 @@ import AIService, { ConversationMessage, PortfolioContext } from '../services/ai
 import CreditsService from '../services/credits.service';
 import PortfolioChatService, { ChatMessage } from '../services/portfolio-chat.service';
 import logger from '../utils/logger';
+import AICapabilityService from '../services/ai-capability.service';
+import { isAICapabilityKey } from '../constants/ai-capabilities';
+import ArchestraAgentService from '../services/archestra-agent.service';
 
 // ============================================
 // TYPES
@@ -212,6 +215,23 @@ export class WizardController {
                 step,
                 wizardData
             );
+
+            const rawCapabilities = wizardData?.aiCapabilities;
+            if (rawCapabilities && typeof rawCapabilities === 'object') {
+                const capabilityPayload = Object.entries(rawCapabilities)
+                    .filter(([key]) => isAICapabilityKey(key))
+                    .map(([key, value]: [string, any]) => ({
+                        capability_key: key as any,
+                        enabled: Boolean(value?.enabled),
+                        settings_json: value?.settings || value?.settings_json || {},
+                    }));
+
+                await AICapabilityService.upsertCapabilities(portfolioId, capabilityPayload as any);
+            }
+
+            if (portfolio.status === 'published' && portfolio.archestra_agent_id && ArchestraAgentService.isA2AEnabled()) {
+                ArchestraAgentService.updateAgent(portfolio.archestra_agent_id, portfolio).catch(() => { });
+            }
 
             logger.db('UPDATE', 'portfolios', { id: portfolioId, step });
 

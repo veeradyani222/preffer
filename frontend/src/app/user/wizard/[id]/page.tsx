@@ -52,6 +52,7 @@ interface WizardData {
     aiManagerPersonality?: string;
     aiManagerHasPortfolioAccess?: boolean;
     aiManagerFinalized?: boolean;
+    aiCapabilities?: Record<string, { enabled: boolean; settings?: any }>;
     theme?: string;
     colorScheme?: {
         name: string;
@@ -59,6 +60,22 @@ interface WizardData {
     };
     slug?: string;
 }
+
+interface CapabilityOption {
+    key: string;
+    label: string;
+    description: string;
+}
+
+const AI_CAPABILITY_OPTIONS: CapabilityOption[] = [
+    { key: 'lead_capture', label: 'Lead Capture', description: 'Detect hiring/buying intent and save leads.' },
+    { key: 'appointment_requests', label: 'Appointment Requests', description: 'Capture demo/call requests and preferred windows.' },
+    { key: 'order_quote_requests', label: 'Order/Quote Requests', description: 'Capture service/product quote and order details.' },
+    { key: 'support_escalation', label: 'Support Escalation', description: 'Escalate unresolved support issues to dashboard.' },
+    { key: 'faq_unknown_escalation', label: 'FAQ + Unknown Escalation', description: 'Log unknown questions for owner follow-up.' },
+    { key: 'follow_up_requests', label: 'Follow-up Requests', description: 'Capture reminders and contact-me-later requests.' },
+    { key: 'feedback_reviews', label: 'Feedback & Reviews', description: 'Capture testimonials, complaints, and feedback.' },
+];
 
 interface Section {
     id: string;
@@ -68,21 +85,27 @@ interface Section {
     order: number;
 }
 
-interface Portfolio {
-    slug: string;
-    id: string;
-    wizardStep: number;
-    wizard_step: number;
-    wizardData: WizardData;
-    wizard_data: WizardData;
-    sections: Section[];
-    status: string;
-}
-
 interface ChatMessage {
-    role: 'ai' | 'user';
+    role: 'user' | 'ai';
     content: string;
     timestamp: Date;
+}
+
+interface Portfolio {
+    id: string;
+    userId: string;
+    status: 'draft' | 'published';
+    slug?: string;
+    wizardStep?: number;
+    wizard_step?: number;
+    wizardData?: WizardData;
+    wizard_data?: WizardData;
+    sections?: Section[];
+    has_ai_manager?: boolean;
+    ai_manager_finalized?: boolean;
+    ai_manager_name?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 const SECTION_LABELS: Record<string, { label: string; description: string; icon: string }> = {
@@ -1695,6 +1718,24 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         wizardData?.aiManagerHasPortfolioAccess || false
     );
     const [aiManagerFinalized, setAiManagerFinalized] = useState(wizardData?.aiManagerFinalized || false);
+    const [aiCapabilities, setAiCapabilities] = useState<Record<string, { enabled: boolean; settings?: any }>>(
+        wizardData?.aiCapabilities || {}
+    );
+    const [appointmentTimezone, setAppointmentTimezone] = useState(
+        wizardData?.aiCapabilities?.appointment_requests?.settings?.timezone || 'UTC'
+    );
+    const [appointmentDays, setAppointmentDays] = useState<string[]>(
+        wizardData?.aiCapabilities?.appointment_requests?.settings?.available_days || []
+    );
+    const [appointmentWindows, setAppointmentWindows] = useState(
+        wizardData?.aiCapabilities?.appointment_requests?.settings?.time_windows || ''
+    );
+    const [appointmentBuffer, setAppointmentBuffer] = useState<number>(
+        Number(wizardData?.aiCapabilities?.appointment_requests?.settings?.buffer_minutes || 15)
+    );
+    const [appointmentNotes, setAppointmentNotes] = useState(
+        wizardData?.aiCapabilities?.appointment_requests?.settings?.booking_notes || ''
+    );
 
     useEffect(() => {
         if (!hasAiManager) {
@@ -1709,13 +1750,54 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         aiManagerHasPortfolioAccess
     );
 
+    const isAppointmentEnabled = Boolean(aiCapabilities.appointment_requests?.enabled);
+
+    const toggleCapability = (key: string) => {
+        setAiCapabilities((prev) => ({
+            ...prev,
+            [key]: {
+                ...(prev[key] || {}),
+                enabled: !prev[key]?.enabled,
+            },
+        }));
+    };
+
+    const toggleDay = (day: string) => {
+        setAppointmentDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
+    };
+
     const handleContinue = () => {
+        const capabilityPayload = AI_CAPABILITY_OPTIONS.reduce((acc, option) => {
+            const enabled = Boolean(aiCapabilities[option.key]?.enabled);
+            if (option.key === 'appointment_requests') {
+                acc[option.key] = {
+                    enabled,
+                    settings: enabled
+                        ? {
+                            timezone: appointmentTimezone,
+                            available_days: appointmentDays,
+                            time_windows: appointmentWindows,
+                            buffer_minutes: appointmentBuffer,
+                            booking_notes: appointmentNotes,
+                        }
+                        : {},
+                };
+            } else {
+                acc[option.key] = {
+                    enabled,
+                    settings: {},
+                };
+            }
+            return acc;
+        }, {} as Record<string, { enabled: boolean; settings?: any }>);
+
         onNext({
             hasAiManager,
             aiManagerName: hasAiManager ? aiManagerName.trim() : '',
             aiManagerPersonality: hasAiManager ? aiManagerPersonality : '',
             aiManagerHasPortfolioAccess: hasAiManager ? aiManagerHasPortfolioAccess : false,
-            aiManagerFinalized: hasAiManager ? aiManagerFinalized : false
+            aiManagerFinalized: hasAiManager ? aiManagerFinalized : false,
+            aiCapabilities: capabilityPayload,
         });
     };
 
@@ -1723,8 +1805,8 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         <div>
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Step 5</span>
-                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Add your AI Manager</h2>
-                <p className="text-stone-600">Set up an AI manager that answers visitors on your behalf like a real manager.</p>
+                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Add your AI Representative</h2>
+                <p className="text-stone-600">Set up an AI representative that answers visitors on your behalf like a real representative.</p>
             </div>
 
             <div
@@ -1833,19 +1915,104 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed border-purple-300 bg-white p-4">
-                        <p className="text-sm text-stone-600">Finalize this AI agent for your portfolio.</p>
-                        <button
-                            onClick={() => setAiManagerFinalized(true)}
-                            disabled={!canFinalize}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${canFinalize
-                                ? 'bg-purple-600 text-white hover:bg-purple-700'
-                                : 'bg-stone-100 text-stone-400 cursor-not-allowed'
-                                }`}
-                        >
-                            {aiManagerFinalized ? 'Finalised' : 'Finalize AI Manager'}
-                        </button>
+                </div>
+            )}
+
+            <div className="mt-6 rounded-xl border border-stone-200 bg-white p-5 space-y-4">
+                <div>
+                    <h3 className="text-lg font-semibold text-stone-900">AI Representative Services</h3>
+                    <p className="text-sm text-stone-600">All services start off. Enable only the ones you want.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {AI_CAPABILITY_OPTIONS.map((option) => {
+                        const enabled = Boolean(aiCapabilities[option.key]?.enabled);
+                        return (
+                            <button
+                                key={option.key}
+                                type="button"
+                                onClick={() => toggleCapability(option.key)}
+                                className={`text-left rounded-lg border p-3 transition-colors ${enabled ? 'border-stone-900 bg-stone-50' : 'border-stone-200 bg-white hover:bg-stone-50'}`}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-sm font-semibold text-stone-900">{option.label}</p>
+                                        <p className="text-xs text-stone-600 mt-1">{option.description}</p>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${enabled ? 'bg-stone-900 border-stone-900' : 'border-stone-300 bg-white'}`}>
+                                        {enabled && <Check className="w-3.5 h-3.5 text-white" />}
+                                    </div>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {isAppointmentEnabled && (
+                    <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                        <p className="text-sm font-semibold text-stone-900 mb-3">Appointment Availability</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input
+                                value={appointmentTimezone}
+                                onChange={(e) => setAppointmentTimezone(e.target.value)}
+                                placeholder="Timezone (e.g. Asia/Kolkata)"
+                                className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                            />
+                            <input
+                                value={appointmentWindows}
+                                onChange={(e) => setAppointmentWindows(e.target.value)}
+                                placeholder="Time windows (e.g. 10:00-13:00, 15:00-18:00)"
+                                className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                            />
+                            <input
+                                type="number"
+                                min={0}
+                                value={appointmentBuffer}
+                                onChange={(e) => setAppointmentBuffer(Number(e.target.value || 0))}
+                                placeholder="Buffer minutes"
+                                className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                            />
+                            <input
+                                value={appointmentNotes}
+                                onChange={(e) => setAppointmentNotes(e.target.value)}
+                                placeholder="Booking notes (optional)"
+                                className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
+                            />
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
+                                const selected = appointmentDays.includes(day);
+                                return (
+                                    <button
+                                        key={day}
+                                        type="button"
+                                        onClick={() => toggleDay(day)}
+                                        className={`px-2.5 py-1 text-xs rounded-full border ${selected ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-700 border-stone-300'}`}
+                                    >
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
+                )}
+            </div>
+
+            {hasAiManager && (
+                <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-dashed border-purple-300 bg-purple-50/50 p-5">
+                    <div>
+                        <h3 className="text-sm font-bold text-stone-900">Ready to Finalize?</h3>
+                        <p className="text-sm text-stone-600">Lock in your AI representative settings and proceed.</p>
+                    </div>
+                    <button
+                        onClick={() => setAiManagerFinalized(true)}
+                        disabled={!canFinalize}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${canFinalize
+                            ? 'bg-purple-600 text-white hover:bg-purple-700'
+                            : 'bg-stone-100 text-stone-400 cursor-not-allowed'
+                            }`}
+                    >
+                        {aiManagerFinalized ? 'Finalised' : 'Finalize AI Representative'}
+                    </button>
                 </div>
             )}
 

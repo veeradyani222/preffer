@@ -4,6 +4,11 @@ import ReactMarkdown from 'react-markdown';
 import { Theme } from '@/themes';
 import { PortfolioSection } from '@/types/section.types';
 import { LuExternalLink } from 'react-icons/lu';
+import { ProjectReveal } from '@/components/themes/ui/ProjectReveal';
+import { TiltCard } from '@/components/themes/ui/TiltCard';
+import useEmblaCarousel from 'embla-carousel-react';
+import { LuChevronLeft, LuChevronRight } from 'react-icons/lu';
+import { useCallback } from 'react';
 
 interface SectionProps {
     section: PortfolioSection;
@@ -19,178 +24,128 @@ export function ProjectsSection({ section, theme }: SectionProps) {
 
     if (items.length === 0) return null;
 
-    // Modern Theme: Clean Showcase Grid (No Cards)
+    // Modern/Minimal Theme: Project Reveal List
     if (theme.variant === 'minimal') {
-        return (
-            <div className="grid gap-16 md:grid-cols-2">
-                {items.map((item: any, idx: number) => (
-                    <div
-                        key={idx}
-                        className="group transition-all duration-500 hover:-translate-y-2"
-                    >
-                        <div
-                            className="flex items-baseline justify-between mb-4 border-b pb-4 relative"
-                            style={{ borderColor: `${theme.colors.medium}40` }}
-                        >
-                            {/* Animated bottom border */}
-                            <div
-                                className="absolute bottom-0 left-0 h-[1px] w-0 group-hover:w-full transition-all duration-700 ease-out"
-                                style={{ backgroundColor: theme.colors.darkest }}
-                            />
+        const projects = items.map((item: any, idx: number) => ({
+            id: String(idx),
+            title: item.name,
+            description: item.description,
+            image: item.image, // Assuming item has image property, even if undefined
+            link: item.link,
+            tags: item.tags
+        }));
 
+        return <div className="max-w-5xl mx-auto"><ProjectReveal projects={projects} /></div>;
+    }
+
+    // --- CAROUSEL SETUP FOR OTHER THEMES ---
+    const [emblaRef, emblaApi] = useEmblaCarousel({ align: 'start', loop: false });
+
+    const scrollPrev = useCallback(() => {
+        if (emblaApi) emblaApi.scrollPrev();
+    }, [emblaApi]);
+
+    const scrollNext = useCallback(() => {
+        if (emblaApi) emblaApi.scrollNext();
+    }, [emblaApi]);
+
+
+    const CarouselNavigation = () => (
+        <div className="flex justify-end gap-2 mb-4">
+            <button
+                className="p-3 rounded-full border transition-all hover:bg-black hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={scrollPrev}
+                style={{ borderColor: theme.colors.darkest, color: theme.colors.darkest }}
+            >
+                <LuChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+                className="p-3 rounded-full border transition-all hover:bg-black hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={scrollNext}
+                style={{ borderColor: theme.colors.darkest, color: theme.colors.darkest }}
+            >
+                <LuChevronRight className="w-5 h-5" />
+            </button>
+        </div>
+    );
+
+    const ElegantCard = ({ item, idx }: { item: any, idx: number }) => (
+        <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_80%] pr-8">
+            <TiltCard theme={theme} className="h-full block">
+                <div
+                    className="group flex flex-col md:flex-row gap-8 items-start md:items-center py-8 border-b h-full"
+                    style={{ borderColor: `${theme.colors.medium}30` }}
+                >
+                    <div className="flex-1">
+                        <div className="flex items-baseline gap-4 mb-3">
+                            <span
+                                className="text-xs font-serif italic opacity-60"
+                                style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
+                            >
+                                0{idx + 1}
+                            </span>
                             {item.name && (
                                 <h3
-                                    className="text-2xl md:text-3xl font-bold tracking-tight transition-colors duration-300 group-hover:opacity-70"
-                                    style={{
-                                        color: theme.colors.darkest,
-                                        fontFamily: theme.typography.fontFamilyHeading
-                                    }}
+                                    className="text-2xl md:text-3xl font-medium tracking-tight"
+                                    style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyHeading }}
                                 >
                                     {item.name}
                                 </h3>
-                            )}
-                            {item.link && (
-                                <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-3 rounded-full transition-all hover:bg-black hover:text-white"
-                                    style={{
-                                        color: theme.colors.darkest,
-                                    }}
-                                >
-                                    <LuExternalLink className="w-6 h-6" />
-                                </a>
                             )}
                         </div>
 
                         {item.description && typeof item.description === 'string' && (
                             <div
-                                className="prose prose-lg max-w-none mb-6 opacity-80"
-                                style={{
-                                    color: theme.colors.dark,
-                                    fontFamily: theme.typography.fontFamilyBody
-                                }}
+                                className="prose prose-lg max-w-xl opacity-80 pl-8"
+                                style={{ color: theme.colors.dark, fontFamily: theme.typography.fontFamilyBody }}
                             >
                                 <ReactMarkdown>{String(item.description)}</ReactMarkdown>
                             </div>
                         )}
 
                         {Array.isArray(item.tags) && item.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-auto">
+                            <div className="flex flex-wrap gap-2 mt-4 pl-8">
                                 {item.tags.map((tag: string, tagIdx: number) => (
                                     <span
                                         key={tagIdx}
-                                        className="text-sm font-medium opacity-60"
-                                        style={{
-                                            color: theme.colors.darkest,
-                                            fontFamily: theme.typography.fontFamilyBody
-                                        }}
+                                        className="text-xs uppercase tracking-widest opacity-60"
+                                        style={{ color: theme.colors.dark, fontFamily: theme.typography.fontFamilyBody }}
                                     >
-                                        #{tag}
+                                        {tag}
                                     </span>
                                 ))}
                             </div>
                         )}
                     </div>
-                ))}
-            </div>
-        )
-    }
 
-    // Elegant Theme: Clean, image-focused (if images existed) or strong typography
-    if (theme.variant === 'elegant') {
-        return (
-            <div className="space-y-16">
-                {items.map((item: any, idx: number) => (
-                    <div
-                        key={idx}
-                        className="group flex flex-col md:flex-row gap-8 items-start md:items-center py-8 border-b last:border-0"
-                        style={{ borderColor: `${theme.colors.medium}30` }}
-                    >
-                        <div className="flex-1">
-                            <div className="flex items-baseline gap-4 mb-3">
-                                <span
-                                    className="text-xs font-serif italic opacity-60"
-                                    style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
-                                >
-                                    0{idx + 1}
-                                </span>
-                                {item.name && (
-                                    <h3
-                                        className="text-2xl md:text-3xl font-medium tracking-tight"
-                                        style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyHeading }}
-                                    >
-                                        {item.name}
-                                    </h3>
-                                )}
-                            </div>
+                    {item.link && (
+                        <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-6 py-3 rounded-full text-sm transition-all hover:bg-black hover:text-white self-start md:self-center shrink-0"
+                            style={{
+                                border: `1px solid ${theme.colors.darkest}`,
+                                color: theme.colors.darkest,
+                                fontFamily: theme.typography.fontFamilyBody
+                            }}
+                        >
+                            View Project
+                        </a>
+                    )}
+                </div>
+            </TiltCard>
+        </div>
+    );
 
-                            {item.description && typeof item.description === 'string' && (
-                                <div
-                                    className="prose prose-lg max-w-xl opacity-80 pl-8"
-                                    style={{ color: theme.colors.dark, fontFamily: theme.typography.fontFamilyBody }}
-                                >
-                                    <ReactMarkdown>{String(item.description)}</ReactMarkdown>
-                                </div>
-                            )}
-
-                            {Array.isArray(item.tags) && item.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-4 pl-8">
-                                    {item.tags.map((tag: string, tagIdx: number) => (
-                                        <span
-                                            key={tagIdx}
-                                            className="text-xs uppercase tracking-widest opacity-60"
-                                            style={{ color: theme.colors.dark, fontFamily: theme.typography.fontFamilyBody }}
-                                        >
-                                            {tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {item.link && (
-                            <a
-                                href={item.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-6 py-3 rounded-full text-sm transition-all hover:bg-black hover:text-white self-start md:self-center shrink-0"
-                                style={{
-                                    border: `1px solid ${theme.colors.darkest}`,
-                                    color: theme.colors.darkest,
-                                    fontFamily: theme.typography.fontFamilyBody
-                                }}
-                            >
-                                View Project
-                            </a>
-                        )}
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
-    // Sleek Theme: Technical Grid with mono typography
-    return (
-        <div className="grid gap-6 md:grid-cols-2">
-            {items.map((item: any, idx: number) => (
+    const TechieCard = ({ item, idx }: { item: any, idx: number }) => (
+        <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_50%] pr-6">
+            <TiltCard theme={theme} tiltMaxAngleX={5} tiltMaxAngleY={5} className="h-full">
                 <div
-                    key={idx}
                     className="flex flex-col h-full relative group transition-all duration-300"
                     style={{
                         backgroundColor: theme.colors.lightest,
                         border: `1px solid ${theme.colors.medium}`,
-                    }}
-                    onMouseOver={(e) => {
-                        e.currentTarget.style.borderColor = theme.colors.darkest;
-                        e.currentTarget.style.boxShadow = `8px 8px 0 ${theme.colors.darkest}`;
-                        e.currentTarget.style.transform = 'translate(-4px, -4px)';
-                    }}
-                    onMouseOut={(e) => {
-                        e.currentTarget.style.borderColor = theme.colors.medium;
-                        e.currentTarget.style.boxShadow = 'none';
-                        e.currentTarget.style.transform = 'none';
                     }}
                 >
                     {/* Header bar */}
@@ -271,7 +226,27 @@ export function ProjectsSection({ section, theme }: SectionProps) {
                         )}
                     </div>
                 </div>
-            ))}
+            </TiltCard>
+        </div>
+    );
+
+    // Render Carousel for non-minimal themes
+    const renderContent = () => {
+        if (theme.variant === 'elegant') {
+            return items.map((item: any, idx: number) => <ElegantCard key={idx} item={item} idx={idx} />);
+        }
+        // Techie and Default share specific techie card or fallback
+        return items.map((item: any, idx: number) => <TechieCard key={idx} item={item} idx={idx} />);
+    };
+
+    return (
+        <div className="relative max-w-5xl mx-auto">
+            <CarouselNavigation />
+            <div className="overflow-hidden" ref={emblaRef}>
+                <div className="flex">
+                    {renderContent()}
+                </div>
+            </div>
         </div>
     );
 

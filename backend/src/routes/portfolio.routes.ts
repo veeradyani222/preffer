@@ -39,6 +39,11 @@ router.post('/suggest-slug', authenticate, PortfolioController.suggestSlug);
 
 // Get single portfolio by ID
 router.get('/:id', authenticate, PortfolioController.getPortfolioById);
+router.get('/:id/ai-capabilities', authenticate, PortfolioController.getAICapabilities);
+router.put('/:id/ai-capabilities', authenticate, PortfolioController.upsertAICapabilities);
+router.get('/:id/ai-capabilities/:capability/records', authenticate, PortfolioController.listAICapabilityRecords);
+router.patch('/:id/ai-capabilities/:capability/records/:recordId/status', authenticate, PortfolioController.updateAICapabilityRecordStatus);
+router.get('/:id/ai-tool-events', authenticate, PortfolioController.getAIToolEvents);
 
 // Update portfolio by ID
 router.put('/:id', authenticate, PortfolioController.updatePortfolioById);

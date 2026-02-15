@@ -164,7 +164,7 @@ export default function DashboardPage() {
             <section>
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-xs font-semibold uppercase tracking-wider text-[#9B9A97]">Analytics Overview</h2>
-                    <Link href="/user/analytics" className="text-xs text-[#37352f] hover:underline font-medium">
+                    <Link href="/dashboard/analytics" className="text-xs text-[#37352f] hover:underline font-medium">
                         View Details →
                     </Link>
                 </div>
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                         </div>
 
                         <Link
-                            href="/user/analytics"
+                            href="/dashboard/analytics"
                             className="flex items-center justify-between border border-[#E9E9E7] rounded-lg px-4 py-3 hover:bg-[#FAFAF9] transition-colors group"
                         >
                             <p className="text-sm text-[#9B9A97]">View AI-powered insights, sentiment analysis, and visitor conversations</p>
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                         </Link>
                     </div>
                 ) : (
-                    <Link href="/user/analytics" className="block border border-[#E9E9E7] rounded-lg p-5 hover:bg-[#FAFAF9] transition-colors">
+                    <Link href="/dashboard/analytics" className="block border border-[#E9E9E7] rounded-lg p-5 hover:bg-[#FAFAF9] transition-colors">
                         <p className="text-sm text-[#9B9A97] mb-1">See detailed analytics, AI-powered insights, sentiment analysis, and all visitor conversations.</p>
                         <span className="text-xs text-[#37352f] font-medium">Open Analytics Dashboard →</span>
                     </Link>

@@ -141,8 +141,7 @@ export function ExperienceSection({ section, theme }: SectionProps) {
 
     // Techie Theme: Timeline with technical details
     if (theme.variant === 'techie') {
-        const heading = section.title; // Assuming title can be used as heading for techie theme
-        const experiences = items; // Renaming for clarity in this theme variant
+        const experiences = items;
 
         return (
             <div className="py-20 border-b" style={{ borderColor: theme.colors.medium }}>

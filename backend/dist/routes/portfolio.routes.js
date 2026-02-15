@@ -32,6 +32,11 @@ router.post('/', authenticate_1.default, portfolio_controller_1.default.createPo
 router.post('/suggest-slug', authenticate_1.default, portfolio_controller_1.default.suggestSlug);
 // Get single portfolio by ID
 router.get('/:id', authenticate_1.default, portfolio_controller_1.default.getPortfolioById);
+router.get('/:id/ai-capabilities', authenticate_1.default, portfolio_controller_1.default.getAICapabilities);
+router.put('/:id/ai-capabilities', authenticate_1.default, portfolio_controller_1.default.upsertAICapabilities);
+router.get('/:id/ai-capabilities/:capability/records', authenticate_1.default, portfolio_controller_1.default.listAICapabilityRecords);
+router.patch('/:id/ai-capabilities/:capability/records/:recordId/status', authenticate_1.default, portfolio_controller_1.default.updateAICapabilityRecordStatus);
+router.get('/:id/ai-tool-events', authenticate_1.default, portfolio_controller_1.default.getAIToolEvents);
 // Update portfolio by ID
 router.put('/:id', authenticate_1.default, portfolio_controller_1.default.updatePortfolioById);
 // Delete portfolio

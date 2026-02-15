@@ -16,8 +16,6 @@ interface SectionProps {
 export function EducationSection({ section, theme }: SectionProps) {
     const content = section.content || {};
     const items = Array.isArray(content.items) ? content.items : [];
-    const heading = section.title; // Using title as heading
-
     if (items.length === 0) return null;
 
     // Modern Theme: Vertical Timeline with dots and lines
@@ -77,20 +75,7 @@ export function EducationSection({ section, theme }: SectionProps) {
     if (theme.variant === 'techie') {
         return (
             <div className="py-20 border-b" style={{ borderColor: theme.colors.medium }}>
-                <div className="grid md:grid-cols-[200px_1fr] gap-8">
-                    <div>
-                        {heading && (
-                            <h2
-                                className="text-xl font-bold uppercase tracking-tight sticky top-24"
-                                style={{
-                                    color: theme.colors.darkest,
-                                    fontFamily: theme.typography.fontFamilyHeading
-                                }}
-                            >
-                                {heading}
-                            </h2>
-                        )}
-                    </div>
+                <div className="grid gap-8">
                     <div className="grid gap-6">
                         {items.map((item: any, idx: number) => (
                             <div

@@ -132,10 +132,10 @@ async function generateViaProxy(config, prompt) {
             endpoint = `${normalizedEndpoint}/v1beta/models/${modelName}:generateContent`;
         }
         else {
-            if (!archestra_1.default.baseUrl || !archestra_1.default.profileId) {
-                throw new Error('Invalid Archestra Gemini proxy config. Set ARCHESTRA_LLM_PROXY_URL to /v1/gemini/{profileId} or provide ARCHESTRA_PROFILE_ID.');
+            if (!archestra_1.default.profileId) {
+                throw new Error('Invalid Archestra Gemini proxy config. Provide ARCHESTRA_PROFILE_ID when ARCHESTRA_LLM_PROXY_URL is a base URL.');
             }
-            endpoint = `${archestra_1.default.baseUrl}/v1/gemini/${archestra_1.default.profileId}/v1beta/models/${modelName}:generateContent`;
+            endpoint = `${normalizedEndpoint}/v1/gemini/${archestra_1.default.profileId}/v1beta/models/${modelName}:generateContent`;
         }
         headers['x-goog-api-key'] = process.env.GEMINI_API_KEY || '';
         body = {

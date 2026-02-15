@@ -158,7 +158,8 @@ class AnalyticsService {
                 COALESCE(SUM(s.total), 0)::int             AS total_sessions,
                 COALESCE(SUM(m.total), 0)::int             AS total_messages,
                 COALESCE(SUM(pv.recent), 0)::int           AS views_5d,
-                COALESCE(SUM(s.recent), 0)::int            AS sessions_5d
+                COALESCE(SUM(s.recent), 0)::int            AS sessions_5d,
+                COALESCE(SUM(m.recent), 0)::int            AS messages_5d
             FROM portfolios p
             LEFT JOIN LATERAL (
                 SELECT
@@ -176,7 +177,9 @@ class AnalyticsService {
                 WHERE s2.portfolio_id = p.id
             ) s ON true
             LEFT JOIN LATERAL (
-                SELECT COUNT(*)::int AS total
+                SELECT
+                    COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE m2.created_at > NOW() - INTERVAL '5 days')::int AS recent
                 FROM ai_manager_messages m2
                 WHERE m2.portfolio_id = p.id
             ) m ON true
@@ -191,7 +194,66 @@ class AnalyticsService {
             total_messages: row.total_messages || 0,
             views_5d: row.views_5d || 0,
             sessions_5d: row.sessions_5d || 0,
+            messages_5d: row.messages_5d || 0,
+            avg_messages_per_session: row.total_sessions > 0 ? Number((row.total_messages / row.total_sessions).toFixed(2)) : 0,
+            visitor_to_chat_rate: row.unique_visitors > 0 ? Number(((row.total_sessions / row.unique_visitors) * 100).toFixed(1)) : 0,
         };
+    }
+    static async getAgentChatContext(portfolioId) {
+        var _a, _b, _c, _d;
+        const statsQuery = `
+            SELECT
+                COUNT(*)::int AS total_views,
+                COUNT(DISTINCT visitor_ip)::int AS unique_visitors
+            FROM portfolio_page_views
+            WHERE portfolio_id = $1
+        `;
+        const sessionsQuery = `
+            SELECT
+                COUNT(*)::int AS total_sessions
+            FROM ai_manager_sessions
+            WHERE portfolio_id = $1
+        `;
+        const messagesQuery = `
+            SELECT
+                COUNT(*)::int AS total_messages
+            FROM ai_manager_messages
+            WHERE portfolio_id = $1
+        `;
+        const topQuestionsQuery = `
+            SELECT content
+            FROM ai_manager_messages
+            WHERE portfolio_id = $1
+              AND role = 'visitor'
+              AND length(content) > 0
+            ORDER BY created_at DESC
+            LIMIT 3
+        `;
+        const [statsRes, sessionsRes, messagesRes, questionsRes] = await Promise.all([
+            database_1.default.query(statsQuery, [portfolioId]),
+            database_1.default.query(sessionsQuery, [portfolioId]),
+            database_1.default.query(messagesQuery, [portfolioId]),
+            database_1.default.query(topQuestionsQuery, [portfolioId]),
+        ]);
+        const totalViews = Number(((_a = statsRes.rows[0]) === null || _a === void 0 ? void 0 : _a.total_views) || 0);
+        const uniqueVisitors = Number(((_b = statsRes.rows[0]) === null || _b === void 0 ? void 0 : _b.unique_visitors) || 0);
+        const totalSessions = Number(((_c = sessionsRes.rows[0]) === null || _c === void 0 ? void 0 : _c.total_sessions) || 0);
+        const totalMessages = Number(((_d = messagesRes.rows[0]) === null || _d === void 0 ? void 0 : _d.total_messages) || 0);
+        const avgMessagesPerSession = totalSessions > 0 ? Number((totalMessages / totalSessions).toFixed(2)) : 0;
+        const visitorToChatRate = uniqueVisitors > 0 ? Number(((totalSessions / uniqueVisitors) * 100).toFixed(1)) : 0;
+        const recentQuestions = questionsRes.rows.map((r) => r.content).filter(Boolean);
+        const lines = [
+            `Views: ${totalViews}`,
+            `Unique Visitors: ${uniqueVisitors}`,
+            `Chat Sessions: ${totalSessions}`,
+            `Messages: ${totalMessages}`,
+            `Avg Messages/Session: ${avgMessagesPerSession}`,
+            `Visitor->Chat Rate: ${visitorToChatRate}%`,
+        ];
+        if (recentQuestions.length > 0) {
+            lines.push(`Recent Visitor Questions: ${recentQuestions.join(' | ')}`);
+        }
+        return lines.join('\n');
     }
     static async getViewsPerDay(userId, days = 5, portfolioId) {
         const portfolioFilter = portfolioId
@@ -352,7 +414,7 @@ class AnalyticsService {
                     .join('\n');
                 return `--- Conversation ${idx + 1} (Portfolio: "${session.portfolio_name}") ---\n${msgs || 'No messages'}`;
             }).join('\n\n');
-            const prompt = `Analyze these ${batch.length} AI manager conversations and provide a structured summary.
+            const prompt = `Analyze these ${batch.length} AI representative conversations and provide a structured summary.
 
 ${conversationTexts}
 
@@ -403,14 +465,14 @@ Rules:
         // Default response for no data
         if (stats.total_views === 0 && stats.total_sessions === 0) {
             return {
-                executive_summary: 'No visitor data yet. Share your portfolio links to start gaining insights!',
+                executive_summary: 'No visitor data yet. Share your professional page links to start gaining insights!',
                 sentiment: { positive: 0, neutral: 0, negative: 0 },
                 interest_areas: [],
                 top_questions: [],
                 conversion_opportunities: [],
                 recommendations: [
-                    'Share your portfolio link on social media to drive traffic.',
-                    'Enable AI managers on your portfolios to engage visitors.',
+                    'Share your professional page link on social media to drive traffic.',
+                    'Enable AI representatives on your professional pages to engage visitors.',
                     'Add detailed project sections to showcase your work.',
                 ],
                 conversation_summaries: [],
@@ -502,7 +564,7 @@ Rules:
                     description: s, potential: 'medium', action: 'Follow up with visitor'
                 })),
                 recommendations: [
-                    'Share your portfolio links to increase visibility.',
+                    'Share your professional page links to increase visibility.',
                     'Review AI chat sessions to understand visitor needs.',
                     'Add case studies to showcase your best work.',
                 ],

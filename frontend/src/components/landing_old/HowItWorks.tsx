@@ -8,7 +8,7 @@ export default function HowItWorks() {
         {
             icon: <MessageSquare size={40} />,
             title: "1. Tell the AI About You",
-            description: "Chat with our AI manager. Share your skills, projects, and goals in a simple conversation."
+            description: "Chat with our AI representative. Share your skills, projects, and goals in a simple conversation."
         },
         {
             icon: <LayoutTemplate size={40} />,

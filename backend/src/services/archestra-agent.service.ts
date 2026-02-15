@@ -10,6 +10,7 @@
 
 import archestraConfig from '../config/archestra';
 import logger from '../utils/logger';
+import { AI_CAPABILITY_KEYS } from '../constants/ai-capabilities';
 
 // ============================================
 // TYPES
@@ -141,6 +142,11 @@ async function fetchArchestraWithRetry(
     throw new Error(`${label} network error after retries: ${reason}`);
 }
 
+function getEnabledCapabilityKeys(portfolio: PortfolioForPrompt): string[] {
+    const config = portfolio?.wizard_data?.aiCapabilities || {};
+    return AI_CAPABILITY_KEYS.filter((k) => Boolean(config?.[k]?.enabled));
+}
+
 // ============================================
 // SYSTEM PROMPT BUILDER
 // ============================================
@@ -149,7 +155,7 @@ function buildPortfolioContext(portfolio: PortfolioForPrompt): string {
     const lines: string[] = [];
     const wizardData = portfolio.wizard_data || {};
 
-    lines.push(`Portfolio Name: ${wizardData.name || portfolio.name || 'Untitled'}`);
+    lines.push(`Professional Page Name: ${wizardData.name || portfolio.name || 'Untitled'}`);
     if (wizardData.profession || portfolio.profession) {
         lines.push(`Profession/Industry: ${wizardData.profession || portfolio.profession}`);
     }
@@ -170,25 +176,72 @@ function buildPortfolioContext(portfolio: PortfolioForPrompt): string {
     return lines.join('\n');
 }
 
+function buildCapabilityPolicy(portfolio: PortfolioForPrompt): string {
+    const wizardData = portfolio.wizard_data || {};
+    const capabilityConfig = wizardData.aiCapabilities || {};
+    const enabledKeys = AI_CAPABILITY_KEYS.filter((k) => capabilityConfig?.[k]?.enabled);
+
+    if (enabledKeys.length === 0) {
+        return 'No structured capability tools are enabled. Keep chat helpful and informational.';
+    }
+
+    const lines: string[] = [
+        'Enabled structured capabilities:',
+    ];
+
+    const baseRules = [
+        '- Ask for missing required details once, politely.',
+        '- One contact method (email or phone) is enough when contact is needed.',
+        '- For actionable requests, offer owner callback instead of asking the visitor to contact the owner first.',
+        '- If the visitor declines contact info, continue helping without forcing.',
+        '- Do NOT mention internal tools, tool names, or tool availability to visitors.',
+        '- Infer visitor intent from natural language semantics, not exact keywords.',
+        '- Capture/escalation is handled automatically by backend systems after each reply.',
+        '- For actionable intents, summarize what will happen next in plain language.',
+        '- If details are missing for an action, ask one concise follow-up question.',
+        '- Never claim an external action was completed unless it was actually completed.',
+    ];
+
+    for (const key of enabledKeys) {
+        lines.push(`- ${key}`);
+        if (key === 'appointment_requests') {
+            const settings = capabilityConfig[key]?.settings || {};
+            lines.push(`  appointment_settings: ${JSON.stringify(settings)}`);
+        }
+    }
+
+    lines.push('Tool execution protocol (internal behavior rules):');
+    lines.push('- Detect intent from context and phrasing, even when the visitor does not use explicit labels.');
+    lines.push('- Gather minimal structured details naturally in conversation.');
+    lines.push('- When details are sufficient, acknowledge that you have captured the request and proceed.');
+    lines.push('- Keep acknowledgements specific (what was captured) but never expose internal tool details.');
+
+    return `${lines.join('\n')}\n${baseRules.join('\n')}`;
+}
+
 export function buildSystemPrompt(portfolio: PortfolioForPrompt): string {
-    const name = portfolio.ai_manager_name || 'AI Manager';
+    const name = portfolio.ai_manager_name || 'AI Representative';
     const personality = portfolio.ai_manager_personality || 'professional';
     const context = portfolio.ai_manager_has_portfolio_access
         ? buildPortfolioContext(portfolio)
         : '';
 
-    let prompt = `You are ${name}, a ${personality} AI manager representing this portfolio publicly.
+    let prompt = `You are ${name}, a ${personality} AI representative representing this professional page publicly.
 
 Rules:
 - Always introduce yourself naturally as ${name} when appropriate.
 - Answer only based on the portfolio context below.
 - Never just say unnecessary stuff based on the instructions, you have to reply based on the instructions, not just say them anywhere.
-- If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
-- Keep responses concise, helpful, and professional.
+- If information is missing, say you don't have that specific detail yet and ask: "Would you like the owner to contact you?"
+- When intent is actionable, ask for missing structured details naturally and confirm captured details.
+- Do not ask visitors to initiate contact with the owner when callback can be offered.
+- Keep responses concise, helpful, and according to your personality.
 - Never reveal raw JSON.`;
 
+    prompt += `\n\nCapability Policy:\n${buildCapabilityPolicy(portfolio)}`;
+
     if (context) {
-        prompt += `\n\nPortfolio Context:\n${context}`;
+        prompt += `\n\nProfessional Page Context:\n${context}`;
     }
 
     return prompt;
@@ -206,21 +259,23 @@ export async function createAgent(portfolio: PortfolioForPrompt, portfolioId: st
     const baseUrl = getBaseUrl();
     const headers = getManagementHeaders();
     const llmApiKeyId = (await resolveLlmApiKeyId(baseUrl)) || undefined;
+    const enabledCapabilityKeys = getEnabledCapabilityKeys(portfolio);
 
     const systemPrompt = buildSystemPrompt(portfolio);
 
     const body: Record<string, any> = {
-        name: `${portfolio.ai_manager_name} — Portfolio AI`,
+        name: `${portfolio.ai_manager_name} — Professional Page AI`,
         agentType: 'agent',
         systemPrompt,
         userPrompt: portfolio.ai_manager_custom_instructions || null,
-        description: `AI manager for portfolio: ${portfolio.name}`,
+        description: `AI representative for professional page: ${portfolio.name}`,
         llmModel: 'gemini-2.0-flash',
         // Archestra now validates teams as required; empty array keeps agent unrestricted.
         teams: [],
         labels: [
             { key: 'source', value: 'portfolio-builder' },
             { key: 'portfolio-id', value: portfolioId },
+            { key: 'enabled-capabilities', value: enabledCapabilityKeys.join(',') || 'none' },
         ],
         isDefault: false,
         isDemo: false,
@@ -280,13 +335,17 @@ export async function createAgentOrFallback(
 export async function updateAgent(agentId: string, portfolio: PortfolioForPrompt): Promise<ArchestraAgent> {
     const baseUrl = getBaseUrl();
     const headers = getManagementHeaders();
+    const enabledCapabilityKeys = getEnabledCapabilityKeys(portfolio);
 
     const systemPrompt = buildSystemPrompt(portfolio);
 
     const body: Record<string, any> = {
-        name: `${portfolio.ai_manager_name || 'AI Manager'} — Portfolio AI`,
+        name: `${portfolio.ai_manager_name || 'AI Representative'} — Professional Page AI`,
         systemPrompt,
         userPrompt: portfolio.ai_manager_custom_instructions || null,
+        labels: [
+            { key: 'enabled-capabilities', value: enabledCapabilityKeys.join(',') || 'none' },
+        ],
     };
 
     logger.ai('Updating Archestra agent', { agentId });
@@ -347,7 +406,8 @@ export async function sendA2AMessage(
     agentId: string,
     message: string,
     history: { role: 'user' | 'assistant'; content: string }[] = [],
-    aiManagerName: string = 'AI Manager'
+    aiManagerName: string = 'AI Representative',
+    analyticsContext?: string
 ): Promise<A2AResponse> {
     const baseUrl = getBaseUrl();
     const headers = getA2AHeaders();
@@ -361,6 +421,10 @@ export async function sendA2AMessage(
             .map((m) => `${m.role === 'user' ? 'Visitor' : aiManagerName}: ${m.content}`)
             .join('\n');
         fullMessage = `Previous conversation:\n${historyStr}\n\nVisitor's new message: ${message}`;
+    }
+
+    if (analyticsContext && analyticsContext.trim()) {
+        fullMessage = `[Private analytics context]\n${analyticsContext}\n[/Private analytics context]\n\n${fullMessage}`;
     }
 
     const body = {
@@ -515,4 +579,3 @@ export default {
     isA2AEnabled,
     isAgentA2ACompatible,
 };
-

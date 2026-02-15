@@ -350,8 +350,8 @@ class AssistantChatService {
             throw new Error('This portfolio does not have an AI manager yet');
         }
         const defaultTitle = contextType === 'portfolio'
-            ? `Portfolio: ${portfolio.name || 'Untitled Portfolio'}`
-            : `AI Manager: ${portfolio.ai_manager_name || portfolio.name || 'Untitled Portfolio'}`;
+            ? `Professional Page: ${portfolio.name || 'Untitled Professional Page'}`
+            : `AI Representative: ${portfolio.ai_manager_name || portfolio.name || 'Untitled Professional Page'}`;
         const createChatQuery = `
             INSERT INTO assistant_chats (user_id, context_type, portfolio_id, title)
             VALUES ($1, $2, $3, $4)
@@ -372,10 +372,10 @@ class AssistantChatService {
                 .filter((s) => s.content && Object.keys(s.content).length > 0)
                 .map((s) => `• **${s.title || s.type}**`)
                 .join('\n');
-            introMessage = `Hey! 👋 You're now editing **${portfolio.name || 'your portfolio'}**.\n\nHere are your current sections:\n${sectionList || '_(No sections with content yet)_'}\n\nJust tell me what you'd like to change — update text, tweak content, rearrange items, or even **change your theme**! 🎨\n\nWhat would you like to work on?`;
+            introMessage = `Hey! 👋 You're now editing **${portfolio.name || 'your professional page'}**.\n\nHere are your current sections:\n${sectionList || '_(No sections with content yet)_'}\n\nJust tell me what you'd like to change — update text, tweak content, rearrange items, or even **change your theme**! 🎨\n\nWhat would you like to work on?`;
         }
         else {
-            introMessage = `Hey! 👋 You're now configuring **${portfolio.ai_manager_name || 'your AI manager'}**.\n\nTell me any behavior rules, business context, or instructions you want this manager to follow. I'll merge them into its instruction set.`;
+            introMessage = `Hey! 👋 You're now configuring **${portfolio.ai_manager_name || 'your AI representative'}**.\n\nTell me any behavior rules, business context, or instructions you want this representative to follow. I'll merge them into its instruction set.`;
         }
         const initialMessage = await this.addMessage(chat.id, 'assistant', introMessage, {
             type: 'intro',
@@ -401,7 +401,7 @@ class AssistantChatService {
     // ------------------------------------------
     static async mergeAiManagerInstructions(portfolio, userInstruction) {
         const existing = (portfolio.ai_manager_custom_instructions || '').trim();
-        const prompt = `You are assisting a portfolio owner who is updating their AI manager instruction set.
+        const prompt = `You are assisting a professional page owner who is updating their AI representative instruction set.
 
 Existing instructions:
 ${existing || 'None yet.'}
@@ -417,7 +417,7 @@ Return ONLY valid JSON:
         const text = await (0, gemini_service_1.generateWithFallback)({ temperature: 0.4, maxOutputTokens: 700, responseMimeType: 'application/json' }, prompt);
         const parsed = this.extractJson(text);
         const updatedInstructions = (parsed.updatedInstructions || `${existing}\n- ${userInstruction}`).trim();
-        const reply = (parsed.reply || 'Done. I updated your AI manager instructions.').trim();
+        const reply = (parsed.reply || 'Done. I updated your AI representative instructions.').trim();
         await database_1.default.query(`UPDATE portfolios SET ai_manager_custom_instructions = $1, updated_at = NOW() WHERE id = $2`, [updatedInstructions, portfolio.id]);
         return { reply, updatedInstructions };
     }
@@ -569,7 +569,7 @@ CURRENT STYLE SETTINGS:
 - Theme: ${currentTheme} (Available: 'minimal', 'techie', 'elegant')
 - Color Scheme: ${currentColor} (Available: 'warm', 'forest', 'ocean', 'luxury', 'berry', 'terra', 'teal', 'slate', 'monochrome')
 
-CURRENT PORTFOLIO SECTIONS (this is the actual live data):
+CURRENT PROFESSIONAL PAGE SECTIONS (this is the actual live data):
 ${sectionsDetail}
 
 ${pendingProposal ? `PENDING PROPOSAL:

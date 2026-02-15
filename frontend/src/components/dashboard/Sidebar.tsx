@@ -43,7 +43,7 @@ export default function Sidebar() {
         }
     }, [mounted, user]);
 
-    const isActive = (path: string) => pathname === path;
+    const isActive = (path: string) => pathname === path || pathname.startsWith(`${path}/`);
 
     const startEditing = (chat: any, e: React.MouseEvent) => {
         e.preventDefault();
@@ -97,6 +97,7 @@ export default function Sidebar() {
     const navItems = [
         { name: 'Dashboard', href: '/user/dashboard', icon: LayoutDashboard },
         { name: 'Analytics', href: '/user/analytics', icon: BarChart3 },
+        { name: 'AI Modules', href: '/user/ai-manager', icon: Bot },
         { name: 'Settings', href: '/user/settings', icon: Settings },
         { name: 'Credentials', href: '/user/credentials', icon: Key },
         { name: 'My Account', href: '/user/account', icon: UserIcon },

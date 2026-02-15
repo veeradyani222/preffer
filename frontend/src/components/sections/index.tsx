@@ -11,6 +11,7 @@
 import { ReactElement } from 'react';
 import { Theme } from '@/themes';
 import { PortfolioSection, SectionType } from '@/types/section.types';
+import { SectionWrapper } from '@/components/themes/SectionWrapper';
 
 // Import all 14 section components
 import { HeroSection } from './HeroSection';
@@ -52,6 +53,7 @@ export interface SectionProps {
     theme: Theme;
     aiManagerName?: string;
     aiManagerUrl?: string; // Full URL path
+    socialLinks?: any;
 }
 
 type SectionComponent = (props: SectionProps) => ReactElement | null;
@@ -88,10 +90,21 @@ export function getSectionComponent(type: string): SectionComponent | undefined 
 /**
  * Render a section with the appropriate component
  */
-export function renderSection(section: PortfolioSection, theme: Theme, aiManagerName?: string, aiManagerUrl?: string): ReactElement | null {
+
+// ...
+
+/**
+ * Render a section with the appropriate component
+ */
+export function renderSection(section: PortfolioSection, theme: Theme, aiManagerName?: string, aiManagerUrl?: string, socialLinks?: any): ReactElement | null {
     const Component = getSectionComponent(section.type);
     if (!Component) return null;
-    return <Component section={section} theme={theme} aiManagerName={aiManagerName} aiManagerUrl={aiManagerUrl} />;
+
+    return (
+        <SectionWrapper theme={theme}>
+            <Component section={section} theme={theme} aiManagerName={aiManagerName} aiManagerUrl={aiManagerUrl} socialLinks={socialLinks} />
+        </SectionWrapper>
+    );
 }
 
 /**

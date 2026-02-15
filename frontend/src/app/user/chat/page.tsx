@@ -86,6 +86,7 @@ function AssistantChatPageContent() {
     const [error, setError] = useState<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const availableTargets = useMemo(() => {
         if (contextType === 'portfolio') {
@@ -114,6 +115,13 @@ function AssistantChatPageContent() {
             scrollToBottom();
         }
     }, [messages, view]);
+
+    useEffect(() => {
+        // Auto-focus input field when in chat view
+        if (view === 'chat' && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [view, sending]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -529,6 +537,7 @@ function AssistantChatPageContent() {
                 <div className="max-w-3xl mx-auto relative">
                     <form onSubmit={handleSend} className="relative">
                         <input
+                            ref={inputRef}
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder={selectedChat?.context_type === 'portfolio' ? 'Ask to change sections, update text, or redesign...' : 'Instruct your AI manager on how to behave...'}

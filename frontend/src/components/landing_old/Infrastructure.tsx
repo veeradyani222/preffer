@@ -23,7 +23,7 @@ export default function Infrastructure() {
                             Powered by <span className="text-[#FFD54F]">Archestra</span> & <span className="text-blue-400">MCP</span>
                         </h2>
                         <p className="text-gray-300 text-lg mb-8 leading-relaxed">
-                            Your AI manager doesn’t just chat — it can use real tools. Connect services like GitHub, Google Drive, or calendars so your portfolio updates automatically and client actions happen safely.
+                            Your AI representative doesn't just chat — it can use real tools. Connect services like GitHub, Google Drive, or calendars so your professional page updates automatically and client actions happen safely.
                         </p>
 
                         <ul className="space-y-6">
@@ -70,9 +70,9 @@ export default function Infrastructure() {
                                     />
                                 </div>
 
-                                {/* AI Manager */}
+                                {/* AI Representative */}
                                 <div className="w-full bg-white/10 border border-white/20 p-4 rounded-xl text-center">
-                                    <div className="font-bold text-[#FFD54F] mb-1">AI Manager</div>
+                                    <div className="font-bold text-[#FFD54F] mb-1">AI Representative</div>
                                     <div className="text-xs text-gray-400">Processes request & decides tools</div>
                                 </div>
 

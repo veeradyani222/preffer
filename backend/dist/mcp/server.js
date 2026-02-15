@@ -20,9 +20,25 @@ const ai_service_1 = require("../services/ai.service");
 const credits_service_1 = require("../services/credits.service");
 const analytics_service_1 = __importDefault(require("../services/analytics.service"));
 const apiKey_service_1 = __importDefault(require("../services/apiKey.service"));
+const ai_capability_service_1 = __importDefault(require("../services/ai-capability.service"));
+const archestra_agent_service_1 = __importDefault(require("../services/archestra-agent.service"));
+const ai_capabilities_1 = require("../constants/ai-capabilities");
 const database_1 = __importDefault(require("../config/database"));
 // Public-facing base URL for portfolio links (from env, no trailing slash)
 const PORTFOLIO_BASE_URL = (process.env.PORTFOLIO_BASE_URL || 'https://prefer.me').replace(/\/+$/, '');
+function normalizeCapabilityPayload(raw) {
+    const out = [];
+    for (const item of (Array.isArray(raw) ? raw : [])) {
+        if (!item || !(0, ai_capabilities_1.isAICapabilityKey)(item.capability_key))
+            continue;
+        out.push({
+            capability_key: item.capability_key,
+            enabled: Boolean(item.enabled),
+            settings_json: item.settings_json || item.settings || {},
+        });
+    }
+    return out;
+}
 const SECTION_SCHEMAS = {
     hero: {
         structure: `{
@@ -416,7 +432,7 @@ FULL PORTFOLIO CREATION FLOW (follow this order strictly):
 2. Update portfolio info — call update_portfolio_info with profession and description
 3. Recommend sections — call recommend_sections
 4. Build ALL sections one by one — for each, draft content, present for approval, add with add_section
-5. AI Manager setup — after ALL sections are done, ask user if they want an AI manager. If yes, ask for name, personality, and any custom instructions, then call update_ai_manager.
+5. AI Manager setup — after ALL sections are done, ask user if they want an AI manager. If yes, ask for name, personality, and any custom instructions, then call update_ai_manager. If they want intent capture/escalation features, call update_ai_capabilities too.
 6. Theme & color scheme — ask the user's preference or suggest one, then call update_theme.
 7. Publish — check slug availability with check_slug, then call publish_portfolio.
 
@@ -771,14 +787,20 @@ IMPORTANT: Do NOT show portfolio IDs or internal configuration details to the us
     // ------------------------------------------
     server.tool('update_ai_manager', `Update the AI manager settings for a portfolio. You can update the name, personality, custom instructions, portfolio access, and finalized status. Only updates the fields you provide.
 
-IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to the next step in the flow (theme selection if during portfolio creation).`, {
+IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to the next step in the flow (theme selection if during portfolio creation). If user wants structured lead/callback/support capture, call update_ai_capabilities.`, {
         portfolio_id: zod_1.z.string().uuid().describe('Portfolio ID'),
         name: zod_1.z.string().max(120).optional().describe('AI manager display name'),
         personality: zod_1.z.string().max(60).optional().describe('Personality type, e.g. "professional", "friendly", "casual"'),
         custom_instructions: zod_1.z.string().optional().describe('Custom behavior instructions for the AI manager'),
         has_portfolio_access: zod_1.z.boolean().optional().describe('Whether the AI manager can read portfolio content'),
-        finalized: zod_1.z.boolean().optional().describe('Whether the AI manager setup is complete')
-    }, async ({ portfolio_id, name, personality, custom_instructions, has_portfolio_access, finalized }, extra) => {
+        finalized: zod_1.z.boolean().optional().describe('Whether the AI manager setup is complete'),
+        capabilities: zod_1.z.array(zod_1.z.object({
+            capability_key: zod_1.z.enum(ai_capabilities_1.AI_CAPABILITY_KEYS),
+            enabled: zod_1.z.boolean(),
+            settings: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional(),
+            settings_json: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional(),
+        })).optional().describe('Optional capability updates to apply in the same call')
+    }, async ({ portfolio_id, name, personality, custom_instructions, has_portfolio_access, finalized, capabilities }, extra) => {
         try {
             const userId = extra._userId;
             if (!userId)
@@ -813,14 +835,157 @@ IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to the
                 setClauses.push(`ai_manager_finalized = $${idx++}`);
                 values.push(finalized);
             }
-            if (setClauses.length === 0) {
+            const hasCapabilityUpdates = Array.isArray(capabilities) && capabilities.length > 0;
+            if (setClauses.length === 0 && !hasCapabilityUpdates) {
                 return errorResult('No fields provided to update');
             }
-            setClauses.push(`updated_at = NOW()`);
-            values.push(portfolio_id);
-            values.push(userId);
-            await database_1.default.query(`UPDATE portfolios SET ${setClauses.join(', ')} WHERE id = $${idx++} AND user_id = $${idx}`, values);
+            if (setClauses.length > 0) {
+                setClauses.push(`updated_at = NOW()`);
+                values.push(portfolio_id);
+                values.push(userId);
+                await database_1.default.query(`UPDATE portfolios SET ${setClauses.join(', ')} WHERE id = $${idx++} AND user_id = $${idx}`, values);
+            }
+            if (hasCapabilityUpdates) {
+                const incoming = normalizeCapabilityPayload(capabilities);
+                if (!incoming.length)
+                    return errorResult('No valid capabilities provided');
+                // Merge input with current state so partial updates do not disable unspecified capabilities.
+                const current = await ai_capability_service_1.default.getCapabilities(portfolio_id);
+                const mergedByKey = new Map(current.map((item) => [
+                    item.capability_key,
+                    { enabled: item.enabled, settings_json: item.settings_json || {} },
+                ]));
+                for (const cfg of incoming) {
+                    mergedByKey.set(cfg.capability_key, {
+                        enabled: cfg.enabled,
+                        settings_json: cfg.settings_json || {},
+                    });
+                }
+                const merged = ai_capabilities_1.AI_CAPABILITY_KEYS.map((key) => {
+                    var _a, _b, _c;
+                    return ({
+                        capability_key: key,
+                        enabled: (_b = (_a = mergedByKey.get(key)) === null || _a === void 0 ? void 0 : _a.enabled) !== null && _b !== void 0 ? _b : false,
+                        settings_json: ((_c = mergedByKey.get(key)) === null || _c === void 0 ? void 0 : _c.settings_json) || {},
+                    });
+                });
+                const saved = await ai_capability_service_1.default.upsertCapabilities(portfolio_id, merged);
+                const capabilityMap = saved.reduce((acc, item) => {
+                    acc[item.capability_key] = {
+                        enabled: item.enabled,
+                        settings: item.settings_json || {},
+                    };
+                    return acc;
+                }, {});
+                await database_1.default.query(`UPDATE portfolios
+                         SET wizard_data = jsonb_set(COALESCE(wizard_data, '{}'::jsonb), '{aiCapabilities}', $1::jsonb, true),
+                             updated_at = NOW()
+                         WHERE id = $2`, [JSON.stringify(capabilityMap), portfolio_id]);
+            }
+            const refreshed = await portfolio_service_new_1.default.getById(portfolio_id, userId);
+            if ((refreshed === null || refreshed === void 0 ? void 0 : refreshed.status) === 'published' && refreshed.archestra_agent_id && archestra_agent_service_1.default.isA2AEnabled()) {
+                archestra_agent_service_1.default.updateAgent(refreshed.archestra_agent_id, refreshed).catch(() => { });
+            }
             return textResult(`AI manager settings updated successfully!`);
+        }
+        catch (error) {
+            return errorResult(error.message);
+        }
+    });
+    // ------------------------------------------
+    // TOOL: get_ai_capabilities
+    // ------------------------------------------
+    server.tool('get_ai_capabilities', `Get AI capability configuration for a portfolio. Returns whether each capability is enabled and its settings.
+
+Use this before update_ai_capabilities when the user asks what is currently enabled.`, {
+        portfolio_id: zod_1.z.string().uuid().describe('Portfolio ID'),
+    }, async ({ portfolio_id }, extra) => {
+        try {
+            const userId = extra._userId;
+            if (!userId)
+                return errorResult('Authentication required');
+            const portfolio = await portfolio_service_new_1.default.getById(portfolio_id, userId);
+            if (!portfolio)
+                return errorResult('Portfolio not found or access denied');
+            const capabilities = await ai_capability_service_1.default.getCapabilities(portfolio_id);
+            const lines = [
+                `# AI Capabilities`,
+                ``,
+                ...capabilities.map((c) => `- **${ai_capabilities_1.AI_CAPABILITY_LABELS[c.capability_key]}**: ${c.enabled ? 'enabled' : 'disabled'}`),
+            ];
+            return textResult(lines.join('\n'));
+        }
+        catch (error) {
+            return errorResult(error.message);
+        }
+    });
+    // ------------------------------------------
+    // TOOL: update_ai_capabilities
+    // ------------------------------------------
+    server.tool('update_ai_capabilities', `Update AI capabilities for a portfolio. This controls structured intent capture (lead capture, appointments, support escalation, etc.).
+
+This tool applies partial updates safely: capabilities not included remain unchanged.`, {
+        portfolio_id: zod_1.z.string().uuid().describe('Portfolio ID'),
+        capabilities: zod_1.z.array(zod_1.z.object({
+            capability_key: zod_1.z.enum(ai_capabilities_1.AI_CAPABILITY_KEYS),
+            enabled: zod_1.z.boolean(),
+            settings: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional(),
+            settings_json: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional(),
+        })).min(1).describe('Capability updates to apply'),
+    }, async ({ portfolio_id, capabilities }, extra) => {
+        try {
+            const userId = extra._userId;
+            if (!userId)
+                return errorResult('Authentication required');
+            const portfolio = await portfolio_service_new_1.default.getById(portfolio_id, userId);
+            if (!portfolio)
+                return errorResult('Portfolio not found or access denied');
+            const incoming = normalizeCapabilityPayload(capabilities);
+            if (!incoming.length)
+                return errorResult('No valid capabilities provided');
+            // Merge input with current state so partial updates do not disable unspecified capabilities.
+            const current = await ai_capability_service_1.default.getCapabilities(portfolio_id);
+            const mergedByKey = new Map(current.map((item) => [
+                item.capability_key,
+                { enabled: item.enabled, settings_json: item.settings_json || {} },
+            ]));
+            for (const cfg of incoming) {
+                mergedByKey.set(cfg.capability_key, {
+                    enabled: cfg.enabled,
+                    settings_json: cfg.settings_json || {},
+                });
+            }
+            const merged = ai_capabilities_1.AI_CAPABILITY_KEYS.map((key) => {
+                var _a, _b, _c;
+                return ({
+                    capability_key: key,
+                    enabled: (_b = (_a = mergedByKey.get(key)) === null || _a === void 0 ? void 0 : _a.enabled) !== null && _b !== void 0 ? _b : false,
+                    settings_json: ((_c = mergedByKey.get(key)) === null || _c === void 0 ? void 0 : _c.settings_json) || {},
+                });
+            });
+            const saved = await ai_capability_service_1.default.upsertCapabilities(portfolio_id, merged);
+            const capabilityMap = saved.reduce((acc, item) => {
+                acc[item.capability_key] = {
+                    enabled: item.enabled,
+                    settings: item.settings_json || {},
+                };
+                return acc;
+            }, {});
+            await database_1.default.query(`UPDATE portfolios
+                     SET wizard_data = jsonb_set(COALESCE(wizard_data, '{}'::jsonb), '{aiCapabilities}', $1::jsonb, true),
+                         updated_at = NOW()
+                     WHERE id = $2`, [JSON.stringify(capabilityMap), portfolio_id]);
+            // Keep linked Archestra agent in sync when portfolio is already published.
+            const refreshed = await portfolio_service_new_1.default.getById(portfolio_id, userId);
+            if ((refreshed === null || refreshed === void 0 ? void 0 : refreshed.status) === 'published' && refreshed.archestra_agent_id && archestra_agent_service_1.default.isA2AEnabled()) {
+                archestra_agent_service_1.default.updateAgent(refreshed.archestra_agent_id, refreshed).catch(() => { });
+            }
+            const enabledLabels = saved
+                .filter((item) => item.enabled)
+                .map((item) => ai_capabilities_1.AI_CAPABILITY_LABELS[item.capability_key]);
+            return textResult(enabledLabels.length
+                ? `AI capabilities updated. Enabled: ${enabledLabels.join(', ')}`
+                : 'AI capabilities updated. No capabilities are currently enabled.');
         }
         catch (error) {
             return errorResult(error.message);

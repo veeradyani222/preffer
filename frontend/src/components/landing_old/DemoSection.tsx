@@ -6,7 +6,7 @@ import { Send, User } from 'lucide-react';
 
 export default function DemoSection() {
     const [messages, setMessages] = useState([
-        { role: 'ai', text: "Hi! I'm Veer's AI manager. How can I help you today?" }
+        { role: 'ai', text: "Hi! I'm Veer's AI representative. How can I help you today?" }
     ]);
     const [inputValue, setInputValue] = useState('');
 
@@ -75,7 +75,7 @@ export default function DemoSection() {
                                     <User size={16} />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-sm text-black">Veer's AI Manager</h4>
+                                    <h4 className="font-bold text-sm text-black">Veer's AI Representative</h4>
                                     <div className="text-xs text-black/80 flex items-center gap-1">
                                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                                         Online now

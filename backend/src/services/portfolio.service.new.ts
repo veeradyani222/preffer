@@ -6,6 +6,7 @@
 import pool from '../config/database';
 import { CreditsService, CREDIT_COSTS, PLAN_LIMITS } from './credits.service';
 import ArchestraAgentService from './archestra-agent.service';
+import { AICapabilityKey } from '../constants/ai-capabilities';
 
 // ============================================
 // TYPES
@@ -99,6 +100,7 @@ export interface WizardData {
     aiManagerPersonality?: string;
     aiManagerHasPortfolioAccess?: boolean;
     aiManagerFinalized?: boolean;
+    aiCapabilities?: Partial<Record<AICapabilityKey, { enabled: boolean; settings?: Record<string, any> }>>;
 
     // Step 6: Theme
     theme?: string;

@@ -2,7 +2,20 @@
 
 import { Theme } from '@/themes';
 import { PortfolioSection } from '@/types/section.types';
-import { LuMail, LuPhone, LuMapPin } from 'react-icons/lu';
+import { LuMail, LuPhone, LuMapPin, LuGlobe } from 'react-icons/lu';
+import { SiGithub, SiLinkedin, SiX, SiInstagram, SiDribbble, SiBehance } from 'react-icons/si';
+import { IconType } from 'react-icons';
+
+// Icon map for social links
+const SOCIAL_ICONS: Record<string, IconType> = {
+    GitHub: SiGithub,
+    LinkedIn: SiLinkedin,
+    Twitter: SiX,
+    Instagram: SiInstagram,
+    Dribbble: SiDribbble,
+    Behance: SiBehance,
+    Website: LuGlobe,
+};
 
 interface SectionProps {
     section: PortfolioSection;
@@ -16,6 +29,30 @@ interface SectionProps {
 export function ContactSection({ section, theme }: SectionProps) {
     const content = section.content || {};
 
+    // --- Parse "Key: Value, Key: Value" string format from content.links ---
+    // The AI/schema stores contacts as: 'Email: foo@bar.com, Phone: 123, Instagram: handle'
+    // We need to extract these into individual fields for the component to render.
+    if (typeof content.links === 'string' && content.links.includes(':')) {
+        const pairs = content.links.split(',').map((s: string) => s.trim());
+        pairs.forEach((pair: string) => {
+            const colonIdx = pair.indexOf(':');
+            if (colonIdx === -1) return;
+            const key = pair.substring(0, colonIdx).trim().toLowerCase();
+            const value = pair.substring(colonIdx + 1).trim();
+            if (!value) return;
+            if (key === 'email' && !content.email) content.email = value;
+            else if (key === 'phone' && !content.phone) content.phone = value;
+            else if (key === 'instagram' && !content.instagram) content.instagram = value;
+            else if (key === 'github' && !content.github) content.github = value;
+            else if (key === 'linkedin' && !content.linkedin) content.linkedin = value;
+            else if ((key === 'twitter' || key === 'x') && !content.twitter) content.twitter = value;
+            else if (key === 'website' && !content.website) content.website = value;
+            else if (key === 'address' && !content.address) content.address = value;
+            else if (key === 'dribbble' && !content.dribbble) content.dribbble = value;
+            else if (key === 'behance' && !content.behance) content.behance = value;
+        });
+    }
+
     const legacyEmail = content.email;
     const legacyPhone = content.phone;
     const legacyAddress = content.address;
@@ -25,12 +62,13 @@ export function ContactSection({ section, theme }: SectionProps) {
     const legacyLinkedin = content.linkedin;
     const legacyTwitter = content.twitter;
     const legacySocial = content.social;
+    const legacyInstagram = content.instagram;
+    const legacyDribbble = content.dribbble;
+    const legacyBehance = content.behance;
 
     const linksArray: string[] = Array.isArray(content.links)
         ? content.links.filter((l: any) => typeof l === 'string')
-        : typeof content.links === 'string'
-            ? content.links.split(',').map((s: string) => s.trim()).filter(Boolean)
-            : [];
+        : []; // Don't re-split the string here; we already parsed it above
 
     // Normalize links array to handle both strings and objects
     const normalizedLinks = Array.isArray(content.links)
@@ -47,7 +85,7 @@ export function ContactSection({ section, theme }: SectionProps) {
 
     const hasLegacyContacts = legacyEmail || legacyPhone;
     const hasMetaInfo = legacyAddress || legacyHours;
-    const hasLinks = normalizedLinks.length > 0 || legacyGithub || legacyLinkedin || legacyTwitter || legacyWebsite;
+    const hasLinks = normalizedLinks.length > 0 || legacyGithub || legacyLinkedin || legacyTwitter || legacyWebsite || legacyInstagram || legacyDribbble || legacyBehance;
 
     if (!heading && !hasLegacyContacts && !hasMetaInfo && !hasLinks) return null;
 
@@ -152,25 +190,33 @@ export function ContactSection({ section, theme }: SectionProps) {
                             { link: legacyGithub, label: 'GitHub' },
                             { link: legacyLinkedin, label: 'LinkedIn' },
                             { link: legacyTwitter, label: 'Twitter' },
+                            { link: legacyInstagram, label: 'Instagram' },
+                            { link: legacyDribbble, label: 'Dribbble' },
+                            { link: legacyBehance, label: 'Behance' },
                             { link: legacyWebsite, label: 'Website' }
-                        ].map((item, i) => item.link && (
-                            <a
-                                key={`std-link-${i}`}
-                                href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
-                                className="px-4 py-1.5 text-sm rounded-full hover:bg-black hover:text-white transition-colors duration-300"
-                                style={{
-                                    backgroundColor: `${theme.colors.medium}10`,
-                                    color: theme.colors.darkest,
-                                    border: `1px solid ${theme.colors.medium}20`,
-                                    fontFamily: theme.typography.fontFamilyBody,
-                                    fontWeight: 500
-                                }}
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                {item.label}
-                            </a>
-                        ))}
+                        ].map((item, i) => {
+                            if (!item.link) return null;
+                            const Icon = SOCIAL_ICONS[item.label];
+                            return (
+                                <a
+                                    key={`std-link-${i}`}
+                                    href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                                    className="flex items-center gap-2 px-4 py-1.5 text-sm rounded-full hover:bg-black hover:text-white transition-colors duration-300"
+                                    style={{
+                                        backgroundColor: `${theme.colors.medium}10`,
+                                        color: theme.colors.darkest,
+                                        border: `1px solid ${theme.colors.medium}20`,
+                                        fontFamily: theme.typography.fontFamilyBody,
+                                        fontWeight: 500
+                                    }}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    {Icon && <Icon size={14} />}
+                                    {item.label}
+                                </a>
+                            );
+                        })}
 
                         {/* Normalized Object Links */}
                         {normalizedLinks.map((item: any, idx: number) => (
@@ -241,32 +287,40 @@ export function ContactSection({ section, theme }: SectionProps) {
                     )}
 
                     {[
-                        { link: legacyLinkedin, label: 'LinkedIn', icon: null },
-                        { link: legacyTwitter, label: 'Twitter', icon: null }
-                    ].map((item, i) => item.link && (
-                        <a
-                            key={i}
-                            href={item.link}
-                            target="_blank"
-                            rel="noopener"
-                            className="group flex flex-col items-center gap-2"
-                        >
-                            <span
-                                className="p-3 rounded-full transition-colors group-hover:bg-stone-100"
-                                style={{ backgroundColor: `${theme.colors.medium}10` }}
+                        { link: legacyLinkedin, label: 'LinkedIn' },
+                        { link: legacyTwitter, label: 'Twitter' },
+                        { link: legacyInstagram, label: 'Instagram' },
+                        { link: legacyGithub, label: 'GitHub' },
+                        { link: legacyWebsite, label: 'Website' }
+                    ].map((item, i) => {
+                        if (!item.link) return null;
+                        const Icon = SOCIAL_ICONS[item.label];
+                        return (
+                            <a
+                                key={i}
+                                href={item.link}
+                                target="_blank"
+                                rel="noopener"
+                                className="group flex flex-col items-center gap-2"
                             >
-                                <span className="w-5 h-5 flex items-center justify-center font-serif italic text-lg" style={{ color: theme.colors.darkest }}>
-                                    {item.label[0]}
+                                <span
+                                    className="p-3 rounded-full transition-colors group-hover:bg-stone-100"
+                                    style={{ backgroundColor: `${theme.colors.medium}10` }}
+                                >
+                                    {Icon
+                                        ? <Icon className="w-5 h-5" style={{ color: theme.colors.darkest }} />
+                                        : <span className="w-5 h-5 flex items-center justify-center font-serif italic text-lg" style={{ color: theme.colors.darkest }}>{item.label[0]}</span>
+                                    }
                                 </span>
-                            </span>
-                            <span
-                                className="text-base border-b border-transparent group-hover:border-current transition-all pb-0.5"
-                                style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
-                            >
-                                {item.label}
-                            </span>
-                        </a>
-                    ))}
+                                <span
+                                    className="text-base border-b border-transparent group-hover:border-current transition-all pb-0.5"
+                                    style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
+                                >
+                                    {item.label}
+                                </span>
+                            </a>
+                        );
+                    })}
                 </div>
 
                 {/* Additional Links Row for Elegant - Compact */}
@@ -384,37 +438,45 @@ export function ContactSection({ section, theme }: SectionProps) {
                             { link: legacyGithub, label: 'GitHub' },
                             { link: legacyLinkedin, label: 'LinkedIn' },
                             { link: legacyTwitter, label: 'Twitter' },
+                            { link: legacyInstagram, label: 'Instagram' },
+                            { link: legacyDribbble, label: 'Dribbble' },
+                            { link: legacyBehance, label: 'Behance' },
                             { link: legacyWebsite, label: 'Website' }
-                        ].map((item, i) => item.link && (
-                            <a
-                                key={`std-link-${i}`}
-                                href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
-                                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
-                                style={{
-                                    borderColor: theme.colors.darkest,
-                                    color: theme.colors.darkest,
-                                    backgroundColor: 'transparent',
-                                    fontFamily: theme.typography.fontFamilyBody,
-                                }}
-                                target="_blank"
-                                rel="noreferrer"
-                                onMouseOver={(e) => {
-                                    e.currentTarget.style.backgroundColor = theme.colors.darkest;
-                                    e.currentTarget.style.color = theme.colors.lightest;
-                                    e.currentTarget.style.boxShadow = `3px 3px 0px 0px ${theme.colors.darkest}`;
-                                    e.currentTarget.style.transform = 'translate(-1px, -1px)';
-                                }}
-                                onMouseOut={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = theme.colors.darkest;
-                                    e.currentTarget.style.boxShadow = 'none';
-                                    e.currentTarget.style.transform = 'none';
-                                }}
-                            >
-                                {item.label}
-                                <span className="text-[9px] opacity-70">↗</span>
-                            </a>
-                        ))}
+                        ].map((item, i) => {
+                            if (!item.link) return null;
+                            const Icon = SOCIAL_ICONS[item.label];
+                            return (
+                                <a
+                                    key={`std-link-${i}`}
+                                    href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                                    className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
+                                    style={{
+                                        borderColor: theme.colors.darkest,
+                                        color: theme.colors.darkest,
+                                        backgroundColor: 'transparent',
+                                        fontFamily: theme.typography.fontFamilyBody,
+                                    }}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onMouseOver={(e) => {
+                                        e.currentTarget.style.backgroundColor = theme.colors.darkest;
+                                        e.currentTarget.style.color = theme.colors.lightest;
+                                        e.currentTarget.style.boxShadow = `3px 3px 0px 0px ${theme.colors.darkest}`;
+                                        e.currentTarget.style.transform = 'translate(-1px, -1px)';
+                                    }}
+                                    onMouseOut={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = theme.colors.darkest;
+                                        e.currentTarget.style.boxShadow = 'none';
+                                        e.currentTarget.style.transform = 'none';
+                                    }}
+                                >
+                                    {Icon && <Icon size={14} />}
+                                    {item.label}
+                                    <span className="text-[9px] opacity-70">↗</span>
+                                </a>
+                            );
+                        })}
 
                         {/* Normalized Object Links */}
                         {normalizedLinks.map((item: any, idx: number) => (

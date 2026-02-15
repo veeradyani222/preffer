@@ -14,6 +14,9 @@ const ai_service_1 = __importDefault(require("../services/ai.service"));
 const credits_service_1 = __importDefault(require("../services/credits.service"));
 const portfolio_chat_service_1 = __importDefault(require("../services/portfolio-chat.service"));
 const logger_1 = __importDefault(require("../utils/logger"));
+const ai_capability_service_1 = __importDefault(require("../services/ai-capability.service"));
+const ai_capabilities_1 = require("../constants/ai-capabilities");
+const archestra_agent_service_1 = __importDefault(require("../services/archestra-agent.service"));
 // In-memory store for pending content (in production, use Redis)
 const pendingContentStore = new Map();
 // ============================================
@@ -178,6 +181,20 @@ class WizardController {
             }
             logger_1.default.wizard(step, 'Updating wizard data', wizardData);
             const portfolio = await portfolio_service_new_1.default.updateWizard(portfolioId, userId, step, wizardData);
+            const rawCapabilities = wizardData === null || wizardData === void 0 ? void 0 : wizardData.aiCapabilities;
+            if (rawCapabilities && typeof rawCapabilities === 'object') {
+                const capabilityPayload = Object.entries(rawCapabilities)
+                    .filter(([key]) => (0, ai_capabilities_1.isAICapabilityKey)(key))
+                    .map(([key, value]) => ({
+                    capability_key: key,
+                    enabled: Boolean(value === null || value === void 0 ? void 0 : value.enabled),
+                    settings_json: (value === null || value === void 0 ? void 0 : value.settings) || (value === null || value === void 0 ? void 0 : value.settings_json) || {},
+                }));
+                await ai_capability_service_1.default.upsertCapabilities(portfolioId, capabilityPayload);
+            }
+            if (portfolio.status === 'published' && portfolio.archestra_agent_id && archestra_agent_service_1.default.isA2AEnabled()) {
+                archestra_agent_service_1.default.updateAgent(portfolio.archestra_agent_id, portfolio).catch(() => { });
+            }
             logger_1.default.db('UPDATE', 'portfolios', { id: portfolioId, step });
             res.json({
                 portfolioId: portfolio.id,

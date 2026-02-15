@@ -46,7 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${outfit.variable} ${poppins.variable} ${playfair.variable} ${lora.variable} ${inter.variable} ${jetbrains.variable}`}>
-      <body className={outfit.className}>
+      <body className={inter.className}>
         <AuthProvider>
           {children}
         </AuthProvider>
