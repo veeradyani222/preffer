@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import pool from '../config/database';
 import { AICapabilityKey, AI_CAPABILITY_KEYS, isAICapabilityKey } from '../constants/ai-capabilities';
 import { generateWithFallback } from './gemini.service';
+import ArchestraOutgoingEmailService from './archestra-outgoing-email.service';
 import logger from '../utils/logger';
 
 export interface CapabilityConfig {
@@ -428,6 +429,25 @@ export class AICapabilityService {
                     },
                     'success'
                 );
+
+                if (action.capability_key === 'lead_capture' && operation === 'created') {
+                    const recipientEmail = this.asNullableText(record?.email) || this.asNullableText(tableData?.email);
+                    const recipientName = this.asNullableText(record?.name) || this.asNullableText(tableData?.name);
+                    if (recipientEmail) {
+                        await ArchestraOutgoingEmailService.sendLeadFollowUpEmail({
+                            portfolioId: input.portfolioId,
+                            recipientEmail,
+                            recipientName,
+                            intentSummary: this.asNullableText(record?.intent_summary) || this.asNullableText(tableData?.intent_summary),
+                        }).catch((emailError: any) => {
+                            logger.warn('Lead follow-up email trigger failed', {
+                                portfolioId: input.portfolioId,
+                                capability: action.capability_key,
+                                error: emailError?.message || String(emailError),
+                            });
+                        });
+                    }
+                }
             } catch (error: any) {
                 await this.logToolEvent(
                     input.portfolioId,

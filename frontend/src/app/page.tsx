@@ -44,7 +44,7 @@ function useTypewriter(words: string[], speed = 50, pause = 2000) {
 }
 
 export default function Home() {
-  const commonTextStyle = "text-[2vh] min-[480px]:text-[1.2vw]";
+  const commonTextStyle = "text-[14px] sm:text-[15px] md:text-[17px]";
   const commonGap = "gap-[1vh] min-[480px]:gap-[0.5vw]";
 
   // Typewriter effects
@@ -68,10 +68,10 @@ export default function Home() {
   ], 70, 2000);
 
   return (
-    <div className="relative h-screen bg-black overflow-hidden flex flex-col items-center justify-center font-sans text-gray-400 p-2">
+    <div className="relative min-h-screen bg-black overflow-x-hidden flex flex-col items-center justify-center font-sans text-gray-400 p-3 sm:p-4">
 
       {/* Branding Header */}
-      <div className="mb-[4vh] text-center z-10 flex flex-col gap-[1vh]">
+      <div className="mb-6 sm:mb-8 text-center z-10 flex flex-col gap-2">
         <h1 className="text-[#FFF9C4] font-bold tracking-tighter leading-none" style={{ fontSize: '5vh' }}>preffer.me</h1>
         <p className="text-[#D4C93A] tracking-[0.3em] uppercase font-medium" style={{ fontSize: '1.2vh' }}>making everyone prefer you</p>
       </div>
@@ -87,31 +87,31 @@ export default function Home() {
         </div>
 
         {/* content body */}
-        <div className={`p-8 md:p-12 flex flex-col items-center justify-center text-center ${commonGap} w-full`}>
+        <div className={`p-5 sm:p-8 md:p-12 flex flex-col items-center justify-center text-center ${commonGap} w-full`}>
 
           {/* Top Two Lines (Same Size) */}
           <div className={`flex flex-col items-center justify-center opacity-90 ${commonGap} w-full`}>
             {/* 1. Identity Line */}
-            <p className={`font-medium text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-1 ${commonTextStyle}`}>
+            <p className={`font-medium text-gray-400 leading-relaxed break-words px-1 ${commonTextStyle}`}>
               Building something of your own?
             </p>
 
             {/* 2. Pain Line */}
-            <p className={`font-medium text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-4xl px-4 ${commonTextStyle}`}>
+            <p className={`font-medium text-gray-400 leading-relaxed break-words px-2 sm:px-4 ${commonTextStyle}`}>
               Tired of working, managing inquiries, missing leads, explaining yourself again and again?
             </p>
           </div>
 
           {/* 3. Main Headline */}
-          <div className="">
-            <h1 className={` tracking-tight leading-tight text-gray-400 ${commonTextStyle}`}>
+          <div className="w-full max-w-3xl">
+            <h1 className="tracking-tight leading-tight text-gray-200 text-[22px] sm:text-[30px] md:text-[38px] font-semibold">
               Get a professional page + AI representative that handles this <span className="text-[#FFF9C4]">for you.</span>
             </h1>
           </div>
 
           {/* 4. Differentiator */}
-          <div className="">
-            <p className={`text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis ${commonTextStyle}`}>
+          <div className="w-full max-w-3xl">
+            <p className={`text-gray-400 leading-relaxed break-words ${commonTextStyle}`}>
               With an <span className="text-[#FFF9C4]">AI representative</span> that <span className="text-gray-300">{differentiatorText}</span><span className="animate-pulse">|</span>
             </p>
           </div>
