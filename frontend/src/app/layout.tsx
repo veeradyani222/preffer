@@ -37,6 +37,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Preffer',
   description: 'Showcase your work professionally.',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({

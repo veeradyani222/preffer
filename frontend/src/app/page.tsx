@@ -46,6 +46,7 @@ function useTypewriter(words: string[], speed = 50, pause = 2000) {
 export default function Home() {
   const commonTextStyle = "text-[14px] sm:text-[15px] md:text-[17px]";
   const commonGap = "gap-[1vh] min-[480px]:gap-[0.5vw]";
+  const demoVideoUrl = 'https://www.youtube.com/embed/tsDKUfw1SX8';
 
   // Typewriter effects
   const differentiatorText = useTypewriter([
@@ -139,6 +140,28 @@ export default function Home() {
         </div>
 
       </main>
+
+      {/* YouTube Demo */}
+      <section className="relative z-10 w-full max-w-4xl mt-6 sm:mt-8 border border-gray-800 rounded-xl overflow-hidden bg-black">
+        <div className="w-full border-b border-gray-800 py-3 text-center">
+          <span className={`text-gray-500 uppercase tracking-widest font-semibold ${commonTextStyle}`} style={{ fontSize: '1.5vh' }}>
+            <span className="text-[#FFF9C4]">Watch demo</span>
+          </span>
+        </div>
+
+        <div className="p-3 sm:p-4">
+          <div className="relative w-full overflow-hidden rounded-lg border border-gray-800" style={{ paddingTop: '56.25%' }}>
+            <iframe
+              src={demoVideoUrl}
+              title="preffer demo video"
+              className="absolute inset-0 h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      </section>
 
     </div>
   );
