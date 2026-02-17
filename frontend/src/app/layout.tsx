@@ -36,7 +36,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Preffer',
-  description: 'Showcase your work professionally.',
+  description: 'Let AI represent u the way u want.',
   icons: {
     icon: '/icon.png',
     shortcut: '/icon.png',

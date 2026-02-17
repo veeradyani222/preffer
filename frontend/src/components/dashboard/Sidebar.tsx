@@ -22,7 +22,15 @@ import {
     BarChart3,
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({
+    mobileOpen = false,
+    onMobileClose,
+    onNavigate,
+}: {
+    mobileOpen?: boolean;
+    onMobileClose?: () => void;
+    onNavigate?: () => void;
+}) {
     const pathname = usePathname();
     const { user, logout } = useAuth();
     const [mounted, setMounted] = useState(false);
@@ -107,7 +115,7 @@ export default function Sidebar() {
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 bg-[#F7F7F5] border-r border-[#E9E9E7] flex flex-col z-30 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-12' : 'w-64'
+            className={`fixed inset-y-0 left-0 bg-[#F7F7F5] border-r border-[#E9E9E7] flex flex-col z-30 transition-all duration-300 ease-in-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 w-64 ${isCollapsed ? 'md:w-12' : 'md:w-64'
                 }`}
         >
             {/* User / Workspace Switcher */}
@@ -122,7 +130,23 @@ export default function Sidebar() {
                         </span>
                     )}
                 </div>
-                {!isCollapsed && <div className="ml-auto text-[#9B9A97]"><ChevronsLeft size={14} className="hover:text-[#37352f]" onClick={(e) => { e.stopPropagation(); setIsCollapsed(true); }} /></div>}
+                {!isCollapsed && (
+                    <div className="ml-auto flex items-center gap-2 text-[#9B9A97]">
+                        <button
+                            type="button"
+                            className="md:hidden p-1 rounded hover:bg-[#EFEFED]"
+                            onClick={(e) => { e.stopPropagation(); onMobileClose?.(); }}
+                            aria-label="Close sidebar"
+                        >
+                            <X size={14} className="hover:text-[#37352f]" />
+                        </button>
+                        <ChevronsLeft
+                            size={14}
+                            className="hover:text-[#37352f] hidden md:block"
+                            onClick={(e) => { e.stopPropagation(); setIsCollapsed(true); }}
+                        />
+                    </div>
+                )}
             </div>
 
             {isCollapsed && (
@@ -157,7 +181,13 @@ export default function Sidebar() {
                                             href={`/user/chat?chatId=${chat.id}`}
                                             className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#EFEFED] group text-[#5F5E5B] transition-colors relative pr-8 ${isActive(`/user/chat?chatId=${chat.id}`) ? 'bg-[#EFEFED] text-[#37352f]' : ''
                                                 }`}
-                                            onClick={(e) => editingChatId === chat.id ? e.preventDefault() : null}
+                                            onClick={(e) => {
+                                                if (editingChatId === chat.id) {
+                                                    e.preventDefault();
+                                                } else {
+                                                    onNavigate?.();
+                                                }
+                                            }}
                                         >
                                             {chat.context_type === 'portfolio' ? (
                                                 <MessageSquare size={14} className="shrink-0 text-[#9B9A97] group-hover:text-[#5F5E5B]" />
@@ -212,6 +242,7 @@ export default function Sidebar() {
                                     : 'text-[#5F5E5B] hover:bg-[#EFEFED]'
                                     } ${isCollapsed ? 'justify-center' : ''}`}
                                 title={isCollapsed ? item.name : undefined}
+                                onClick={() => onNavigate?.()}
                             >
                                 <item.icon
                                     size={16}
