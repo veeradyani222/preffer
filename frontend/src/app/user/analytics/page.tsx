@@ -162,11 +162,11 @@ function DualLineChart({ viewsData, messagesData }: { viewsData: DailyViews[]; m
 
         // Legend
         ctx.font = '11px system-ui';
-        ctx.fillStyle = '#37352f'; ctx.fillText('● Views', W - 120, 14);
-        ctx.fillStyle = '#3B82F6'; ctx.fillText('● Messages', W - 55, 14);
+        ctx.fillStyle = '#37352f'; ctx.fillText('o Views', W - 120, 14);
+        ctx.fillStyle = '#3B82F6'; ctx.fillText('o Messages', W - 55, 14);
     }, [viewsData, messagesData]);
 
-    return <canvas ref={canvasRef} className="w-full" style={{ height: 180 }} />;
+    return <canvas ref={canvasRef} className="w-full h-40 sm:h-[180px]" />;
 }
 
 function SentimentDonut({ sentiment }: { sentiment: { positive: number; neutral: number; negative: number } }) {
@@ -277,7 +277,7 @@ function ConversationItem({ session }: { session: ConversationSession }) {
                                 ? 'bg-white border border-[#E9E9E7] text-[#37352f]'
                                 : 'bg-[#37352f] text-white'
                                 }`}>
-                                <p className="text-xs font-medium mb-1 opacity-60">{msg.role === 'visitor' ? '👤 Visitor' : '🤖 AI'}</p>
+                                <p className="text-xs font-medium mb-1 opacity-60">{msg.role === 'visitor' ? 'Visitor' : 'AI'}</p>
                                 {msg.content}
                             </div>
                         </div>
@@ -366,7 +366,7 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
 
     return (
         <div className="border border-[#E9E9E7] rounded-lg overflow-hidden bg-white">
-            {/* Portfolio Header — always visible */}
+            {/* Portfolio Header -- always visible */}
             <button
                 onClick={() => setExpanded(!expanded)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#FAFAF9] transition-colors text-left"
@@ -375,16 +375,16 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                     ? <ChevronDown size={16} className="text-[#9B9A97] shrink-0" />
                     : <ChevronRight size={16} className="text-[#9B9A97] shrink-0" />}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-[#37352f]">{portfolio.name || 'Untitled'}</span>
-                        <span className="text-xs text-[#9B9A97]">/{portfolio.slug}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-semibold text-[#37352f] truncate">{portfolio.name || 'Untitled'}</span>
+                        <span className="text-xs text-[#9B9A97] truncate hidden sm:inline">/{portfolio.slug}</span>
                         {portfolio.has_ai_manager && (
                             <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">AI</span>
                         )}
                     </div>
                 </div>
                 {/* Quick stats in collapsed view */}
-                <div className="flex items-center gap-4 text-xs text-[#9B9A97] shrink-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-[#9B9A97] shrink-0">
                     <span className="flex items-center gap-1"><Eye size={12} /> {portfolio.views}</span>
                     <span className="flex items-center gap-1"><Users size={12} /> {portfolio.unique_visitors}</span>
                     {portfolio.has_ai_manager && (
@@ -406,7 +406,7 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                     ) : stats ? (
                         <>
                             {/* Portfolio Stat Cards */}
-                            <div className={`grid gap-3 ${portfolio.has_ai_manager ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
+                            <div className={`grid gap-3 ${portfolio.has_ai_manager ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2'}`}>
                                 <div className="bg-white border border-[#E9E9E7] rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-1">
                                         <Eye size={14} className="text-[#9B9A97]" />
@@ -433,7 +433,7 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                                             <p className="text-xl font-bold text-[#37352f]">{stats.total_sessions}</p>
                                             <p className="text-[10px] text-[#9B9A97]">
                                                 AI Sessions ({stats.sessions_5d} last 5d){' '}
-                                                {typeof stats.visitor_to_chat_rate === 'number' ? `• ${stats.visitor_to_chat_rate}% visitor→chat` : ''}
+                                                {typeof stats.visitor_to_chat_rate === 'number' ? `- ${stats.visitor_to_chat_rate}% visitor->chat` : ''}
                                             </p>
                                         </div>
                                         <div className="bg-white border border-[#E9E9E7] rounded-lg p-3">
@@ -445,7 +445,7 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                                             <p className="text-[10px] text-[#9B9A97]">
                                                 AI Messages
                                                 {typeof stats.messages_5d === 'number' ? ` (${stats.messages_5d} last 5d)` : ''}
-                                                {typeof stats.avg_messages_per_session === 'number' ? ` • ${stats.avg_messages_per_session}/session` : ''}
+                                                {typeof stats.avg_messages_per_session === 'number' ? ` - ${stats.avg_messages_per_session}/session` : ''}
                                             </p>
                                         </div>
                                     </>
@@ -455,7 +455,7 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                             {/* Chart */}
                             {viewsPerDay.length > 0 && (
                                 <div className="bg-white border border-[#E9E9E7] rounded-lg p-4">
-                                    <h4 className="text-[10px] font-semibold text-[#9B9A97] uppercase tracking-wider mb-2">Views & Messages — Last 5 Days</h4>
+                                    <h4 className="text-[10px] font-semibold text-[#9B9A97] uppercase tracking-wider mb-2">Views & Messages - Last 5 Days</h4>
                                     <DualLineChart viewsData={viewsPerDay} messagesData={messagesPerDay} />
                                 </div>
                             )}
@@ -541,7 +541,7 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                                                             <span className="text-[10px] font-semibold uppercase">{opp.potential} potential</span>
                                                         </div>
                                                         <p className="text-sm font-medium mb-1">{opp.description}</p>
-                                                        <p className="text-xs opacity-80">→ {opp.action}</p>
+                                                        <p className="text-xs opacity-80">{'-> '} {opp.action}</p>
                                                     </div>
                                                 ))}
                                             </div>
@@ -648,12 +648,12 @@ export default function AnalyticsPage() {
             {
                 label: 'AI Messages',
                 value: overallStats.total_messages,
-                sub: `${overallStats.messages_5d || 0} last 5d • ${overallStats.avg_messages_per_session || 0}/session`,
+                sub: `${overallStats.messages_5d || 0} last 5d - ${overallStats.avg_messages_per_session || 0}/session`,
                 icon: MessagesSquare,
                 trend: overallStats.total_messages > 0
             },
             {
-                label: 'Visitor→Chat Rate',
+                label: 'Visitor->Chat Rate',
                 value: `${overallStats.visitor_to_chat_rate || 0}%`,
                 sub: 'sessions per unique visitor',
                 icon: TrendingUp,
@@ -679,7 +679,7 @@ export default function AnalyticsPage() {
             ) : (
                 <>
                     {/* Overall Stat Cards */}
-                    <div className={`grid gap-3 ${hasAnyAI ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2'}`}>
+                    <div className={`grid gap-3 ${hasAnyAI ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' : 'grid-cols-1 sm:grid-cols-2'}`}>
                         {overallCards.map((card) => (
                             <div key={card.label} className="bg-white border border-[#E9E9E7] rounded-lg p-4 hover:shadow-sm transition-shadow">
                                 <div className="flex items-center justify-between mb-2">
@@ -696,7 +696,7 @@ export default function AnalyticsPage() {
                     {/* Overall Chart */}
                     {overallViewsPerDay.length > 0 && (
                         <div className="bg-white border border-[#E9E9E7] rounded-lg p-4">
-                            <h3 className="text-xs font-semibold text-[#9B9A97] uppercase tracking-wider mb-3">Overall Views & Messages — Last 5 Days</h3>
+                            <h3 className="text-xs font-semibold text-[#9B9A97] uppercase tracking-wider mb-3">Overall Views & Messages - Last 5 Days</h3>
                             <DualLineChart viewsData={overallViewsPerDay} messagesData={overallMessagesPerDay} />
                         </div>
                     )}

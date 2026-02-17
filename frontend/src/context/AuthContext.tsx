@@ -53,14 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error: any) {
             console.error('Failed to fetch user:', error);
 
-            // Clear invalid token for 401 (Unauthorized) or 404 (User not found)
+            // Only clear auth for true auth failures.
             if (error?.status === 401 || error?.status === 404) {
                 console.log('Session invalid or expired. Logging out...');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setUser(null);
+            } else {
+                // Keep existing session data on transient/server errors.
+                const savedUser = localStorage.getItem('user');
+                if (savedUser && !user) {
+                    setUser(JSON.parse(savedUser));
+                }
             }
-
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setUser(null);
         } finally {
             setLoading(false);
         }
