@@ -112,9 +112,10 @@ class AssistantController {
 
             const userMessage = await AssistantChatService.addMessage(chatId, 'user', message.trim());
             const assistantMessage = await AssistantChatService.handleUserMessage(chat, message.trim());
+            const effectiveChat = await AssistantChatService.maybeAutoTitleChat(chat, userId, message.trim());
 
             return res.json({
-                chat,
+                chat: effectiveChat,
                 userMessage,
                 assistantMessage
             });

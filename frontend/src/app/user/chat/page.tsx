@@ -130,6 +130,9 @@ function AssistantChatPageContent() {
     const loadInitial = async () => {
         setLoading(true);
         setError(null);
+        setView('selection');
+        setSelectedChat(null);
+        setMessages([]);
         try {
             const [contexts, chatList] = await Promise.all([
                 apiFetch('/assistant/context-options'),
@@ -165,8 +168,7 @@ function AssistantChatPageContent() {
         try {
             const payload: Record<string, any> = {
                 contextType,
-                portfolioId: selectedPortfolioId,
-                title: contextType === 'portfolio' ? 'Portfolio Edits' : 'AI Manager Setup'
+                portfolioId: selectedPortfolioId
             };
 
             const result = await apiFetch('/assistant/chats', {
@@ -217,6 +219,16 @@ function AssistantChatPageContent() {
             ]);
 
             setChats((prev) => prev.map((chat) => chat.id === selectedChat.id ? { ...chat, updated_at: new Date().toISOString() } : chat));
+            if (data.chat) {
+                setSelectedChat(data.chat);
+                setChats((prev) =>
+                    prev.map((chat) =>
+                        chat.id === selectedChat.id
+                            ? { ...chat, title: data.chat.title, updated_at: data.chat.updated_at || new Date().toISOString() }
+                            : chat
+                    )
+                );
+            }
         } catch (err: any) {
             setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
             setError(err.message || 'Failed to send message');

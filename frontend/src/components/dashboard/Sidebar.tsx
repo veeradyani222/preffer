@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
 import {
@@ -32,6 +32,7 @@ export default function Sidebar({
     onNavigate?: () => void;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
     const { user, logout } = useAuth();
     const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -164,7 +165,17 @@ export default function Sidebar({
                             </div>
                             <div className="flex items-center gap-2 text-[#9B9A97] px-2 py-1 rounded hover:bg-[#EFEFED] cursor-pointer mt-1">
                                 <Plus size={14} />
-                                <Link href="/user/chat" className="text-sm">New Chat</Link>
+                                <button
+                                    type="button"
+                                    className="text-sm"
+                                    onClick={() => {
+                                        router.push(`/user/chat?new=${Date.now()}`);
+                                        onNavigate?.();
+                                        onMobileClose?.();
+                                    }}
+                                >
+                                    New Chat
+                                </button>
                             </div>
                         </div>
 
