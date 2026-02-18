@@ -47,7 +47,6 @@ export default function Sidebar({
         if (mounted && user) {
             apiFetch('/assistant/chats')
                 .then((chats: any[]) => setRecentChats(chats.slice(0, 5)))
-                .catch(err => console.error('Failed to load recent chats:', err));
         }
     }, [mounted, user]);
 
@@ -88,7 +87,6 @@ export default function Sidebar({
                 body: JSON.stringify({ title: editTitle })
             });
         } catch (err) {
-            console.error('Failed to rename chat:', err);
             // Revert on failure
             setRecentChats(originalChats);
         }

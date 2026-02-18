@@ -316,7 +316,6 @@ export default function WizardPage() {
                 router.push('/user/dashboard');
             }
         } catch (error) {
-            console.error('Error fetching portfolio:', error);
             router.push('/user/dashboard');
         } finally {
             setLoading(false);
@@ -345,7 +344,6 @@ export default function WizardPage() {
                 setPortfolio(result.portfolio);
             }
         } catch (error) {
-            console.error('Error updating wizard step:', error);
         }
     };
 
@@ -379,7 +377,6 @@ export default function WizardPage() {
                 alert(error.error || 'Failed to create portfolio');
             }
         } catch (error) {
-            console.error('Error creating portfolio:', error);
             alert('An error occurred. Please try again.');
         }
     };
@@ -850,7 +847,6 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
                 setAiReasoning("Based on general best practices, I've selected these essential sections for you.");
             }
         } catch (error) {
-            console.error('AI recommendation error:', error);
         } finally {
             setIsThinking(false);
         }
@@ -1161,7 +1157,6 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                     }
                 }
             } catch (error) {
-                console.error('Failed to load chat history:', error);
             }
 
             // No history found - show welcome message
@@ -1241,7 +1236,6 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 }]);
             }
         } catch (error) {
-            console.error('Chat error:', error);
             setChatMessages(prev => [...prev, {
                 role: 'ai',
                 content: "An error occurred. Please try again.",
@@ -1297,7 +1291,6 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 }]);
             }
         } catch (error) {
-            console.error('Auto-generate error:', error);
             setChatMessages(prev => [...prev, {
                 role: 'ai',
                 content: "An error occurred. Please try again.",
@@ -1360,7 +1353,6 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 }]);
             }
         } catch (error) {
-            console.error('Approve error:', error);
         } finally {
             setIsGenerating(false);
         }
@@ -1402,7 +1394,6 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 }]);
             }
         } catch (error) {
-            console.error('Improve error:', error);
         } finally {
             setIsGenerating(false);
         }
@@ -1805,7 +1796,17 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         <div>
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Step 5</span>
-                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">Add your AI Representative</h2>
+                <div className="mt-1 mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="text-3xl font-bold text-stone-900">Add your AI Representative</h2>
+                    <a
+                        href="https://archestra.ai/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center text-center rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-widest text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors"
+                    >
+                        Powered by Archestra AI
+                    </a>
+                </div>
                 <p className="text-stone-600">Set up an AI representative that answers visitors on your behalf like a real representative.</p>
             </div>
 
@@ -2218,7 +2219,6 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                 setIsAvailable(false);
             }
         } catch (error) {
-            console.error('Slug check error:', error);
             setIsAvailable(false);
         } finally {
             setIsChecking(false);
@@ -2271,7 +2271,6 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                 alert(error.error || 'Failed to publish');
             }
         } catch (error) {
-            console.error('Publish error:', error);
             alert('An error occurred. Please try again.');
         } finally {
             setIsPublishing(false);

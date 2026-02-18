@@ -51,11 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
         } catch (error: any) {
-            console.error('Failed to fetch user:', error);
 
             // Only clear auth for true auth failures.
             if (error?.status === 401 || error?.status === 404) {
-                console.log('Session invalid or expired. Logging out...');
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 setUser(null);

@@ -405,14 +405,13 @@ export class AIService {
             }
         }
 
-        // Try finding JSON object in text
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+        // Try finding the first valid JSON object in text
+        const extracted = this.extractFirstJsonObject(text);
+        if (extracted) {
             try {
-                return JSON.parse(jsonMatch[0]);
+                return JSON.parse(extracted);
             } catch (e) {
-                // Try to fix truncated JSON
-                const fixedJson = this.attemptJsonFix(jsonMatch[0]);
+                const fixedJson = this.attemptJsonFix(extracted);
                 if (fixedJson) {
                     try {
                         return JSON.parse(fixedJson);
@@ -424,6 +423,50 @@ export class AIService {
         }
 
         throw new Error(`Failed to parse JSON from AI response: ${text.substring(0, 100)}...`);
+    }
+
+    /**
+     * Extract the first balanced JSON object from a string.
+     * Handles cases where multiple JSON objects are present back-to-back.
+     */
+    private static extractFirstJsonObject(text: string): string | null {
+        let inString = false;
+        let escapeNext = false;
+        let depth = 0;
+        let start = -1;
+
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+
+            if (ch === '\\') {
+                escapeNext = true;
+                continue;
+            }
+
+            if (ch === '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString) continue;
+
+            if (ch === '{') {
+                if (depth === 0) start = i;
+                depth++;
+            } else if (ch === '}') {
+                depth--;
+                if (depth === 0 && start !== -1) {
+                    return text.slice(start, i + 1);
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

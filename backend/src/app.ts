@@ -9,7 +9,7 @@ import assistantRoutes from './routes/assistant.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import mcpRouter from './mcp/transport';
 import errorHandler from './middleware/errorHandler';
-import { apiLimiter, authLimiter } from './middleware/rateLimiter';
+import { apiLimiter, authLimiter, mcpLimiter } from './middleware/rateLimiter';
 
 const app = express();
 
@@ -52,6 +52,7 @@ app.use(passport.initialize());
 // ============================================
 app.use('/api/', apiLimiter);
 app.use('/api/auth/', authLimiter);
+app.use('/mcp', mcpLimiter);
 
 // ============================================
 // ROUTES

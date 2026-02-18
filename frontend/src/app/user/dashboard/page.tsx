@@ -98,7 +98,6 @@ export default function DashboardPage() {
             setUnfinished(unfinishedData);
             if (analyticsData?.stats) setAnalyticsStats(analyticsData.stats);
         } catch (err: any) {
-            console.error('Failed to fetch portfolios:', err);
             setError(err.message || 'Failed to load portfolios');
         } finally {
             setLoading(false);

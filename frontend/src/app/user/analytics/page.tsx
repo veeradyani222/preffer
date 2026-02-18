@@ -323,7 +323,6 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                 setConversations(convData.conversations || []);
                 setFetched(true);
             } catch (err) {
-                console.error(`Failed to fetch analytics for ${portfolio.name}:`, err);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -343,7 +342,6 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
                 if (cancelled) return;
                 setInsights(data.insights || null);
             } catch (err) {
-                console.error(`Failed to fetch insights for ${portfolio.name}:`, err);
             } finally {
                 if (!cancelled) setInsightsLoading(false);
             }
@@ -358,7 +356,6 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
             const data = await apiFetch(`/analytics/insights?portfolioId=${portfolio.portfolio_id}`);
             setInsights(data.insights || null);
         } catch (err) {
-            console.error(`Failed to refresh insights for ${portfolio.name}:`, err);
         } finally {
             setInsightsLoading(false);
         }
@@ -616,7 +613,6 @@ export default function AnalyticsPage() {
                 setOverallMessagesPerDay(data.messagesPerDay || []);
                 setPortfolios(data.topPortfolios || []);
             } catch (err) {
-                console.error('Failed to fetch overall analytics:', err);
             } finally {
                 if (!cancelled) setLoading(false);
             }

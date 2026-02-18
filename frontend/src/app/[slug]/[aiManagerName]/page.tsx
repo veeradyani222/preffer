@@ -41,6 +41,7 @@ export default function AiManagerPage() {
     const [isDarkMode, setIsDarkMode] = useState(false); // Default to light mode (or base theme preference)
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const [sessionId, setSessionId] = useState<string | null>(null);
 
     const colorScheme: ColorScheme | undefined = meta?.portfolio?.wizard_data?.colorScheme;
 
@@ -90,6 +91,10 @@ export default function AiManagerPage() {
 
                 const data: ManagerMetaResponse = await response.json();
                 setMeta(data);
+                const storedSessionId = sessionStorage.getItem(`ai_session:${slug}:${aiManagerName}`);
+                if (storedSessionId) {
+                    setSessionId(storedSessionId);
+                }
                 // Don't auto-add greeting to messages list to show empty state designed hero
                 // setMessages([{ role: 'assistant', content: data.greeting }]);
             } catch {
@@ -116,10 +121,13 @@ export default function AiManagerPage() {
                 `${process.env.NEXT_PUBLIC_API_URL}/portfolio/slug/${slug}/ai-manager/${encodeURIComponent(aiManagerName)}/chat`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(sessionId ? { 'x-preffer-session': sessionId } : {})
+                    },
                     body: JSON.stringify({
                         message: userMessage,
-                        history: updatedMessages
+                        ...(sessionId ? { sessionId } : {})
                     })
                 }
             );
@@ -133,6 +141,14 @@ export default function AiManagerPage() {
             }
 
             const data = await response.json();
+            const nextSessionId =
+                data?.sessionId ||
+                response.headers.get('x-preffer-session') ||
+                sessionId;
+            if (nextSessionId && nextSessionId !== sessionId) {
+                setSessionId(nextSessionId);
+                sessionStorage.setItem(`ai_session:${slug}:${aiManagerName}`, nextSessionId);
+            }
             setMessages([...updatedMessages, { role: 'assistant', content: data.reply || 'I can help with that.' }]);
         } catch {
             setMessages([

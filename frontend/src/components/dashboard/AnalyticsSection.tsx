@@ -392,7 +392,6 @@ export default function AnalyticsSection() {
             setAnalytics(dashboardData);
             setConversations(convData.conversations || []);
         } catch (err) {
-            console.error('Failed to fetch analytics:', err);
         } finally {
             setLoading(false);
         }
@@ -404,7 +403,6 @@ export default function AnalyticsSection() {
             const data = await apiFetch('/analytics/insights');
             setInsights(data.insights || null);
         } catch (err) {
-            console.error('Failed to fetch insights:', err);
         } finally {
             setInsightsLoading(false);
         }

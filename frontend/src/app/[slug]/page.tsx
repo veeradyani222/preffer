@@ -77,7 +77,6 @@ export default function PublicPortfolioPage() {
             }
             const data = await response.json();
             setPortfolio(data);
-            console.log('Portfolio Data:', data);
         } catch {
             setError('Failed to load portfolio');
         } finally {

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS ai_manager_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
   visitor_ip TEXT,
+  session_key TEXT,
   started_at TIMESTAMPTZ DEFAULT NOW(),
   last_message_at TIMESTAMPTZ DEFAULT NOW(),
   message_count INT DEFAULT 0
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS ai_manager_messages (
 CREATE INDEX IF NOT EXISTS idx_page_views_portfolio ON portfolio_page_views(portfolio_id);
 CREATE INDEX IF NOT EXISTS idx_page_views_created ON portfolio_page_views(created_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_portfolio ON ai_manager_sessions(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_portfolio_session_key ON ai_manager_sessions(portfolio_id, session_key);
 CREATE INDEX IF NOT EXISTS idx_sessions_last_msg ON ai_manager_sessions(last_message_at);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON ai_manager_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_portfolio ON ai_manager_messages(portfolio_id);

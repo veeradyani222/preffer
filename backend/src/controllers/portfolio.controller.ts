@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { AuthRequest } from '../middleware/authenticate';
 import PortfolioService from '../services/portfolio.service.new';
 import PortfolioChatService from '../services/portfolio-chat.service';
@@ -573,7 +574,7 @@ Return ONLY valid JSON in this exact shape:
         try {
             const slug = req.params.slug as string;
             const aiManagerName = req.params.aiManagerName as string;
-            const { message, history = [] } = req.body as { message?: string; history?: PublicChatMessage[] };
+            const { message, sessionId: bodySessionId } = req.body as { message?: string; history?: PublicChatMessage[]; sessionId?: string };
 
             if (!message || !message.trim()) {
                 return res.status(400).json({ error: 'message is required' });
@@ -596,11 +597,17 @@ Return ONLY valid JSON in this exact shape:
                 return res.status(404).json({ error: 'AI manager not found' });
             }
 
-            const safeHistory = Array.isArray(history)
-                ? history
-                    .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
-                    .slice(-12)
-                : [];
+            const headerSessionId = typeof req.headers['x-preffer-session'] === 'string'
+                ? req.headers['x-preffer-session']
+                : Array.isArray(req.headers['x-preffer-session'])
+                    ? req.headers['x-preffer-session'][0]
+                    : undefined;
+
+            const incomingSessionId = (bodySessionId || headerSessionId || '').trim();
+            const sessionId = incomingSessionId.length > 0 ? incomingSessionId : crypto.randomUUID();
+            res.setHeader('x-preffer-session', sessionId);
+
+            const safeHistory = await AnalyticsService.getSessionHistory(portfolio.id, sessionId, 12);
             const conversationContext = safeHistory
                 .filter((item) => item.role === 'user')
                 .map((item) => `visitor: ${item.content}`)
@@ -648,8 +655,8 @@ Return ONLY valid JSON in this exact shape:
 
             // Track conversations for analytics (fire-and-forget)
             const visitorIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
-            const sessionPromise = AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim());
-            AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply).catch(() => { });
+            const sessionPromise = AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim(), sessionId);
+            AnalyticsService.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply, sessionId).catch(() => { });
 
             sessionPromise
                 .then((sessionId) => AICapabilityService.captureFromConversation({
@@ -666,7 +673,8 @@ Return ONLY valid JSON in this exact shape:
                 aiManager: {
                     name: portfolio.ai_manager_name,
                     personality: portfolio.ai_manager_personality || 'professional'
-                }
+                },
+                sessionId
             });
         } catch (error) {
             console.error('Public AI manager chat error:', error);

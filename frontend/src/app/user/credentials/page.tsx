@@ -37,7 +37,6 @@ export default function CredentialsPage() {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-            console.error('Failed to copy API key:', err);
         }
     };
 
@@ -53,7 +52,6 @@ export default function CredentialsPage() {
                 setShowConfirmRegenerate(false);
             }
         } catch (err) {
-            console.error('Failed to regenerate API key:', err);
             setError('Failed to regenerate API key. Please try again.');
         } finally {
             setIsRegenerating(false);

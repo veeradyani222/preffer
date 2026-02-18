@@ -17,7 +17,6 @@ export default function CallbackInner({ token }: CallbackInnerProps) {
             setToken(token);
             router.push('/user/dashboard');
         } else {
-            console.error('No token found in callback URL');
             router.push('/?error=no_token');
         }
     }, [token, router, setToken]);

@@ -28,7 +28,6 @@ export function useCredits() {
                 setCredits(data);
                 setError(null);
             } catch (err: any) {
-                console.error('Failed to fetch credits:', err);
                 setError(err.message || 'Failed to fetch credits');
             } finally {
                 setLoading(false);
