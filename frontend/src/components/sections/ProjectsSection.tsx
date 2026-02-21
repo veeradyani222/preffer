@@ -9,29 +9,11 @@ import { TiltCard } from '@/components/themes/ui/TiltCard';
 import useEmblaCarousel from 'embla-carousel-react';
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu';
 import { useCallback } from 'react';
+import { normalizeExternalUrl } from '@/lib/externalLinks';
 
 interface SectionProps {
     section: PortfolioSection;
     theme: Theme;
-}
-
-function normalizeProjectLink(value: any): string | null {
-    const raw = typeof value === 'string' ? value.trim() : '';
-    if (!raw) return null;
-    if (raw.startsWith('/')) return null;
-    if (/\s/.test(raw)) return null;
-
-    try {
-        const parsed = new URL(raw);
-        if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-        return parsed.toString();
-    } catch {
-        try {
-            return new URL(`https://${raw}`).toString();
-        } catch {
-            return null;
-        }
-    }
 }
 
 /**
@@ -50,7 +32,7 @@ export function ProjectsSection({ section, theme }: SectionProps) {
             title: item.name,
             description: item.description,
             image: item.image, // Assuming item has image property, even if undefined
-            link: normalizeProjectLink(item.link),
+            link: normalizeExternalUrl(item.link, { blockPreferProjectsPath: true }),
             tags: item.tags
         }));
 
@@ -89,7 +71,7 @@ export function ProjectsSection({ section, theme }: SectionProps) {
     );
 
     const ElegantCard = ({ item, idx }: { item: any, idx: number }) => {
-        const safeLink = normalizeProjectLink(item.link);
+        const safeLink = normalizeExternalUrl(item.link, { blockPreferProjectsPath: true });
         return (
             <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_80%] pr-8">
             <TiltCard theme={theme} className="h-full block">
@@ -161,7 +143,7 @@ export function ProjectsSection({ section, theme }: SectionProps) {
     };
 
     const TechieCard = ({ item, idx }: { item: any, idx: number }) => {
-        const safeLink = normalizeProjectLink(item.link);
+        const safeLink = normalizeExternalUrl(item.link, { blockPreferProjectsPath: true });
         return (
             <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_50%] pr-6">
             <TiltCard theme={theme} tiltMaxAngleX={5} tiltMaxAngleY={5} className="h-full">

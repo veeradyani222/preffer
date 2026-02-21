@@ -5,6 +5,7 @@ import { PortfolioSection } from '@/types/section.types';
 import { TextReveal } from '@/components/themes/ui/TextReveal';
 import * as Icons from 'react-icons/lu';
 import { SiGithub, SiLinkedin, SiX, SiInstagram, SiDribbble, SiBehance } from 'react-icons/si';
+import { normalizeExternalUrl } from '@/lib/externalLinks';
 
 interface SectionProps {
     section: PortfolioSection;
@@ -29,15 +30,20 @@ export function HeroSection({ section, theme, aiManagerName, aiManagerUrl, socia
     const renderSocialLinks = () => {
         if (!socialLinks) return null;
 
-        const links = [];
-        if (socialLinks.github) links.push({ icon: SiGithub, url: socialLinks.github, label: 'GitHub' });
-        if (socialLinks.linkedin) links.push({ icon: SiLinkedin, url: socialLinks.linkedin, label: 'LinkedIn' });
-        if (socialLinks.twitter) links.push({ icon: SiX, url: socialLinks.twitter, label: 'Twitter' });
-        if (socialLinks.instagram) links.push({ icon: SiInstagram, url: socialLinks.instagram, label: 'Instagram' });
-        if (socialLinks.dribbble) links.push({ icon: SiDribbble, url: socialLinks.dribbble, label: 'Dribbble' });
-        if (socialLinks.behance) links.push({ icon: SiBehance, url: socialLinks.behance, label: 'Behance' });
-        if (socialLinks.email) links.push({ icon: Icons.LuMail, url: `mailto:${socialLinks.email}`, label: 'Email' });
-        if (socialLinks.phone) links.push({ icon: Icons.LuPhone, url: `tel:${socialLinks.phone}`, label: 'Phone' });
+        const links: Array<{ icon: any; url: string; label: string; external: boolean }> = [];
+        const pushExternal = (icon: any, raw: any, label: string) => {
+            const safe = normalizeExternalUrl(raw);
+            if (safe) links.push({ icon, url: safe, label, external: true });
+        };
+
+        pushExternal(SiGithub, socialLinks.github, 'GitHub');
+        pushExternal(SiLinkedin, socialLinks.linkedin, 'LinkedIn');
+        pushExternal(SiX, socialLinks.twitter, 'Twitter');
+        pushExternal(SiInstagram, socialLinks.instagram, 'Instagram');
+        pushExternal(SiDribbble, socialLinks.dribbble, 'Dribbble');
+        pushExternal(SiBehance, socialLinks.behance, 'Behance');
+        if (socialLinks.email) links.push({ icon: Icons.LuMail, url: `mailto:${socialLinks.email}`, label: 'Email', external: false });
+        if (socialLinks.phone) links.push({ icon: Icons.LuPhone, url: `tel:${socialLinks.phone}`, label: 'Phone', external: false });
 
         if (links.length === 0) return null;
 
@@ -49,8 +55,8 @@ export function HeroSection({ section, theme, aiManagerName, aiManagerUrl, socia
                         <a
                             key={idx}
                             href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            target={link.external ? '_blank' : undefined}
+                            rel={link.external ? 'noopener noreferrer' : undefined}
                             className="p-2.5 rounded-lg transition-all hover:scale-110 hover:opacity-80"
                             aria-label={link.label}
                             style={{

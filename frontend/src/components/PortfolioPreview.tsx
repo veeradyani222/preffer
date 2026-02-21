@@ -1,4 +1,5 @@
 'use client';
+import { normalizeExternalUrl } from '@/lib/externalLinks';
 
 interface Portfolio {
     headline: string | null;
@@ -33,6 +34,9 @@ export default function PortfolioPreview({ portfolio, user }: PortfolioPreviewPr
     const hasContent = portfolio.headline || portfolio.bio ||
         portfolio.skills?.length > 0 || portfolio.projects?.length > 0 ||
         portfolio.experience?.length > 0 || portfolio.education?.length > 0;
+
+    const safeProjectUrl = (value: any) => normalizeExternalUrl(value);
+    const safeSocialUrl = (value: any) => normalizeExternalUrl(value);
 
     return (
         <div className="p-6 space-y-6">
@@ -143,9 +147,9 @@ export default function PortfolioPreview({ portfolio, user }: PortfolioPreviewPr
                                                 ))}
                                             </div>
                                         )}
-                                        {project.url && (
+                                        {safeProjectUrl(project.url) && (
                                             <a
-                                                href={project.url}
+                                                href={safeProjectUrl(project.url) || '#'}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-sm text-violet-600 hover:underline mt-2 inline-block"
@@ -182,26 +186,26 @@ export default function PortfolioPreview({ portfolio, user }: PortfolioPreviewPr
                         <div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-3">Connect</h3>
                             <div className="flex flex-wrap gap-2">
-                                {portfolio.social_links.github && (
-                                    <a href={portfolio.social_links.github} target="_blank" rel="noopener noreferrer"
+                                {safeSocialUrl(portfolio.social_links.github) && (
+                                    <a href={safeSocialUrl(portfolio.social_links.github) || '#'} target="_blank" rel="noopener noreferrer"
                                         className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors">
                                         GitHub
                                     </a>
                                 )}
-                                {portfolio.social_links.linkedin && (
-                                    <a href={portfolio.social_links.linkedin} target="_blank" rel="noopener noreferrer"
+                                {safeSocialUrl(portfolio.social_links.linkedin) && (
+                                    <a href={safeSocialUrl(portfolio.social_links.linkedin) || '#'} target="_blank" rel="noopener noreferrer"
                                         className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
                                         LinkedIn
                                     </a>
                                 )}
-                                {portfolio.social_links.twitter && (
-                                    <a href={portfolio.social_links.twitter} target="_blank" rel="noopener noreferrer"
+                                {safeSocialUrl(portfolio.social_links.twitter) && (
+                                    <a href={safeSocialUrl(portfolio.social_links.twitter) || '#'} target="_blank" rel="noopener noreferrer"
                                         className="px-3 py-2 bg-sky-500 text-white text-sm rounded-lg hover:bg-sky-600 transition-colors">
                                         Twitter
                                     </a>
                                 )}
-                                {portfolio.social_links.website && (
-                                    <a href={portfolio.social_links.website} target="_blank" rel="noopener noreferrer"
+                                {safeSocialUrl(portfolio.social_links.website) && (
+                                    <a href={safeSocialUrl(portfolio.social_links.website) || '#'} target="_blank" rel="noopener noreferrer"
                                         className="px-3 py-2 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors">
                                         Website
                                     </a>

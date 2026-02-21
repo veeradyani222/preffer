@@ -5,6 +5,7 @@ import { PortfolioSection } from '@/types/section.types';
 import { LuMail, LuPhone, LuMapPin, LuGlobe } from 'react-icons/lu';
 import { SiGithub, SiLinkedin, SiX, SiInstagram, SiDribbble, SiBehance } from 'react-icons/si';
 import { IconType } from 'react-icons';
+import { normalizeExternalUrl } from '@/lib/externalLinks';
 
 // Icon map for social links
 const SOCIAL_ICONS: Record<string, IconType> = {
@@ -20,6 +21,10 @@ const SOCIAL_ICONS: Record<string, IconType> = {
 interface SectionProps {
     section: PortfolioSection;
     theme: Theme;
+}
+
+function safeExternalContactUrl(value: any): string | null {
+    return normalizeExternalUrl(value);
 }
 
 /**
@@ -74,9 +79,11 @@ export function ContactSection({ section, theme }: SectionProps) {
     const normalizedLinks = Array.isArray(content.links)
         ? content.links.filter(Boolean).map((item: any) => {
             if (typeof item === 'string') return null; // handled separately or skip
+            const safeUrl = safeExternalContactUrl(item.url || item.href || item.value || item.text);
+            if (!safeUrl) return null;
             return {
                 label: item.label || item.name || item.type || 'Link',
-                url: item.url || item.href || item.value || item.text
+                url: safeUrl
             };
         }).filter((item: any) => item && item.url)
         : [];
@@ -195,12 +202,13 @@ export function ContactSection({ section, theme }: SectionProps) {
                             { link: legacyBehance, label: 'Behance' },
                             { link: legacyWebsite, label: 'Website' }
                         ].map((item, i) => {
-                            if (!item.link) return null;
+                            const safeUrl = safeExternalContactUrl(item.link);
+                            if (!safeUrl) return null;
                             const Icon = SOCIAL_ICONS[item.label];
                             return (
                                 <a
                                     key={`std-link-${i}`}
-                                    href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                                    href={safeUrl}
                                     className="flex items-center gap-2 px-4 py-1.5 text-sm rounded-full hover:bg-black hover:text-white transition-colors duration-300"
                                     style={{
                                         backgroundColor: `${theme.colors.medium}10`,
@@ -231,8 +239,8 @@ export function ContactSection({ section, theme }: SectionProps) {
                                     fontFamily: theme.typography.fontFamilyBody,
                                     fontWeight: 500
                                 }}
-                                target={item.url.startsWith('http') ? '_blank' : undefined}
-                                rel={item.url.startsWith('http') ? 'noreferrer' : undefined}
+                                target="_blank"
+                                rel="noreferrer"
                             >
                                 {item.label}
                             </a>
@@ -293,12 +301,13 @@ export function ContactSection({ section, theme }: SectionProps) {
                         { link: legacyGithub, label: 'GitHub' },
                         { link: legacyWebsite, label: 'Website' }
                     ].map((item, i) => {
-                        if (!item.link) return null;
+                        const safeUrl = safeExternalContactUrl(item.link);
+                        if (!safeUrl) return null;
                         const Icon = SOCIAL_ICONS[item.label];
                         return (
                             <a
                                 key={i}
-                                href={item.link}
+                                href={safeUrl}
                                 target="_blank"
                                 rel="noopener"
                                 className="group flex flex-col items-center gap-2"
@@ -332,8 +341,8 @@ export function ContactSection({ section, theme }: SectionProps) {
                                 href={item.url}
                                 className="text-sm border-b border-transparent hover:border-current transition-all pb-0.5"
                                 style={{ color: theme.colors.darkest, fontFamily: theme.typography.fontFamilyBody }}
-                                target={item.url.startsWith('http') ? '_blank' : undefined}
-                                rel={item.url.startsWith('http') ? 'noreferrer' : undefined}
+                                target="_blank"
+                                rel="noreferrer"
                             >
                                 {item.label}
                             </a>
@@ -443,12 +452,13 @@ export function ContactSection({ section, theme }: SectionProps) {
                             { link: legacyBehance, label: 'Behance' },
                             { link: legacyWebsite, label: 'Website' }
                         ].map((item, i) => {
-                            if (!item.link) return null;
+                            const safeUrl = safeExternalContactUrl(item.link);
+                            if (!safeUrl) return null;
                             const Icon = SOCIAL_ICONS[item.label];
                             return (
                                 <a
                                     key={`std-link-${i}`}
-                                    href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                                    href={safeUrl}
                                     className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border transition-all duration-200"
                                     style={{
                                         borderColor: theme.colors.darkest,
@@ -490,8 +500,8 @@ export function ContactSection({ section, theme }: SectionProps) {
                                     backgroundColor: 'transparent',
                                     fontFamily: theme.typography.fontFamilyBody,
                                 }}
-                                target={item.url.startsWith('http') ? '_blank' : undefined}
-                                rel={item.url.startsWith('http') ? 'noreferrer' : undefined}
+                                target="_blank"
+                                rel="noreferrer"
                                 onMouseOver={(e) => {
                                     e.currentTarget.style.backgroundColor = theme.colors.darkest;
                                     e.currentTarget.style.color = theme.colors.lightest;
@@ -506,7 +516,7 @@ export function ContactSection({ section, theme }: SectionProps) {
                                 }}
                             >
                                 {item.label}
-                                {item.url.startsWith('http') && <span className="text-[9px] opacity-70">↗</span>}
+                                <span className="text-[9px] opacity-70">↗</span>
                             </a>
                         ))}
                     </div>

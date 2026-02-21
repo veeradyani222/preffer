@@ -34,17 +34,19 @@ const pendingContentStore = new Map<string, PendingContent>();
 // ============================================
 
 export class WizardController {
-    private static normalizeExternalProjectLink(value: any): string {
+    private static normalizeExternalWebLink(value: any, options?: { blockPreferProjectsPath?: boolean }): string {
         const raw = typeof value === 'string' ? value.trim() : '';
         if (!raw) return '';
 
-        // Prevent internal/relative route links for projects.
+        // Prevent internal/relative route links.
         if (raw.startsWith('/')) return '';
         if (/\s/.test(raw)) return '';
 
         const disallowedHosts = new Set(['preffer.me', 'www.preffer.me', 'prefer.me', 'www.prefer.me']);
+        const blockPreferProjectsPath = Boolean(options?.blockPreferProjectsPath);
 
         const isDisallowedProjectPath = (url: URL): boolean => {
+            if (!blockPreferProjectsPath) return false;
             const host = url.hostname.toLowerCase();
             const path = (url.pathname || '').toLowerCase();
             return disallowedHosts.has(host) && path.startsWith('/projects');
@@ -81,10 +83,36 @@ export class WizardController {
 
                 return {
                     ...item,
-                    link: WizardController.normalizeExternalProjectLink(candidateLink),
+                    link: WizardController.normalizeExternalWebLink(candidateLink, { blockPreferProjectsPath: true }),
                 };
             }),
         };
+    }
+
+    private static sanitizeContactContent(content: any): any {
+        if (!content || typeof content !== 'object') return content;
+        const urlFields = ['website', 'github', 'linkedin', 'twitter', 'instagram', 'dribbble', 'behance'];
+
+        const sanitized: Record<string, any> = { ...content };
+        for (const field of urlFields) {
+            if (typeof sanitized[field] === 'string') {
+                sanitized[field] = WizardController.normalizeExternalWebLink(sanitized[field]);
+            }
+        }
+
+        if (Array.isArray(sanitized.links)) {
+            sanitized.links = sanitized.links
+                .map((item: any) => {
+                    if (!item || typeof item !== 'object') return null;
+                    const candidate = item.url || item.href || item.value || item.text || '';
+                    const safe = WizardController.normalizeExternalWebLink(candidate);
+                    if (!safe) return null;
+                    return { ...item, url: safe };
+                })
+                .filter(Boolean);
+        }
+
+        return sanitized;
     }
 
     private static tryParseJsonString(value: any): any {
@@ -757,6 +785,8 @@ export class WizardController {
             contentToSave = WizardController.tryParseJsonString(contentToSave);
             if (section.type === 'projects') {
                 contentToSave = WizardController.sanitizeProjectsContent(contentToSave);
+            } else if (section.type === 'contact') {
+                contentToSave = WizardController.sanitizeContactContent(contentToSave);
             }
 
             logger.section('SAVE', section.type, { contentKeys: Object.keys(contentToSave || {}) });
