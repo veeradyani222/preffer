@@ -34,6 +34,59 @@ const pendingContentStore = new Map<string, PendingContent>();
 // ============================================
 
 export class WizardController {
+    private static normalizeExternalProjectLink(value: any): string {
+        const raw = typeof value === 'string' ? value.trim() : '';
+        if (!raw) return '';
+
+        // Prevent internal/relative route links for projects.
+        if (raw.startsWith('/')) return '';
+        if (/\s/.test(raw)) return '';
+
+        const disallowedHosts = new Set(['preffer.me', 'www.preffer.me', 'prefer.me', 'www.prefer.me']);
+
+        const isDisallowedProjectPath = (url: URL): boolean => {
+            const host = url.hostname.toLowerCase();
+            const path = (url.pathname || '').toLowerCase();
+            return disallowedHosts.has(host) && path.startsWith('/projects');
+        };
+
+        try {
+            const parsed = new URL(raw);
+            if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+            if (isDisallowedProjectPath(parsed)) return '';
+            return parsed.toString();
+        } catch {
+            // If no protocol, treat as external host/path and force https.
+            try {
+                const parsed = new URL(`https://${raw}`);
+                if (isDisallowedProjectPath(parsed)) return '';
+                return parsed.toString();
+            } catch {
+                return '';
+            }
+        }
+    }
+
+    private static sanitizeProjectsContent(content: any): any {
+        if (!content || typeof content !== 'object') return content;
+        const items = Array.isArray(content.items) ? content.items : [];
+
+        return {
+            ...content,
+            items: items.map((item: any) => {
+                if (!item || typeof item !== 'object') return item;
+                const candidateLink = typeof item.link === 'string'
+                    ? item.link
+                    : (typeof item.url === 'string' ? item.url : '');
+
+                return {
+                    ...item,
+                    link: WizardController.normalizeExternalProjectLink(candidateLink),
+                };
+            }),
+        };
+    }
+
     private static tryParseJsonString(value: any): any {
         if (typeof value !== 'string') return value;
         const trimmed = value.trim();
@@ -702,6 +755,9 @@ export class WizardController {
                 logger.info('Using pending content', { key: pendingKey });
             }
             contentToSave = WizardController.tryParseJsonString(contentToSave);
+            if (section.type === 'projects') {
+                contentToSave = WizardController.sanitizeProjectsContent(contentToSave);
+            }
 
             logger.section('SAVE', section.type, { contentKeys: Object.keys(contentToSave || {}) });
 

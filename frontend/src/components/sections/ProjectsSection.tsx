@@ -15,6 +15,25 @@ interface SectionProps {
     theme: Theme;
 }
 
+function normalizeProjectLink(value: any): string | null {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw) return null;
+    if (raw.startsWith('/')) return null;
+    if (/\s/.test(raw)) return null;
+
+    try {
+        const parsed = new URL(raw);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+        return parsed.toString();
+    } catch {
+        try {
+            return new URL(`https://${raw}`).toString();
+        } catch {
+            return null;
+        }
+    }
+}
+
 /**
  * ProjectsSection - Portfolio/projects showcase
  */
@@ -31,7 +50,7 @@ export function ProjectsSection({ section, theme }: SectionProps) {
             title: item.name,
             description: item.description,
             image: item.image, // Assuming item has image property, even if undefined
-            link: item.link,
+            link: normalizeProjectLink(item.link),
             tags: item.tags
         }));
 
@@ -69,8 +88,10 @@ export function ProjectsSection({ section, theme }: SectionProps) {
         </div>
     );
 
-    const ElegantCard = ({ item, idx }: { item: any, idx: number }) => (
-        <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_80%] pr-8">
+    const ElegantCard = ({ item, idx }: { item: any, idx: number }) => {
+        const safeLink = normalizeProjectLink(item.link);
+        return (
+            <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_80%] pr-8">
             <TiltCard theme={theme} className="h-full block">
                 <div
                     className="group flex flex-col md:flex-row gap-8 items-start md:items-center py-8 border-b h-full"
@@ -118,9 +139,9 @@ export function ProjectsSection({ section, theme }: SectionProps) {
                         )}
                     </div>
 
-                    {item.link && (
+                    {safeLink && (
                         <a
-                            href={item.link}
+                            href={safeLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-6 py-3 rounded-full text-sm transition-all hover:bg-black hover:text-white self-start md:self-center shrink-0"
@@ -135,11 +156,14 @@ export function ProjectsSection({ section, theme }: SectionProps) {
                     )}
                 </div>
             </TiltCard>
-        </div>
-    );
+            </div>
+        );
+    };
 
-    const TechieCard = ({ item, idx }: { item: any, idx: number }) => (
-        <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_50%] pr-6">
+    const TechieCard = ({ item, idx }: { item: any, idx: number }) => {
+        const safeLink = normalizeProjectLink(item.link);
+        return (
+            <div className="min-w-0 flex-[0_0_100%] md:flex-[0_0_50%] pr-6">
             <TiltCard theme={theme} tiltMaxAngleX={5} tiltMaxAngleY={5} className="h-full">
                 <div
                     className="flex flex-col h-full relative group transition-all duration-300"
@@ -165,9 +189,9 @@ export function ProjectsSection({ section, theme }: SectionProps) {
                         >
                             PRJ-{String(idx + 1).padStart(3, '0')}
                         </span>
-                        {item.link && (
+                        {safeLink && (
                             <a
-                                href={item.link}
+                                href={safeLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="hover:bg-black hover:text-white transition-colors px-2 py-0.5 text-xs font-bold uppercase flex items-center gap-1"
@@ -227,8 +251,9 @@ export function ProjectsSection({ section, theme }: SectionProps) {
                     </div>
                 </div>
             </TiltCard>
-        </div>
-    );
+            </div>
+        );
+    };
 
     // Render Carousel for non-minimal themes
     const renderContent = () => {
