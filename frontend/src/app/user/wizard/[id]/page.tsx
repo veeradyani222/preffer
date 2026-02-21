@@ -425,13 +425,15 @@ export default function WizardPage() {
         { num: 7, name: 'Publish', icon: Globe }
     ];
 
+    const currentStepMeta = steps.find((step) => step.num === currentStep);
+
     return (
-        <div className="min-h-screen bg-white flex items-start justify-center p-4 pt-4 lg:p-8 font-sans">
+        <div className="min-h-screen bg-white flex items-start justify-center p-2 pt-2 sm:p-4 lg:p-8 font-sans">
             {/* Centered Dynamic Height Container */}
             <div className="w-full max-w-6xl min-h-[600px] bg-white rounded-xl border border-stone-200 overflow-hidden flex flex-col lg:flex-row relative">
 
                 {/* Left Sidebar Navigation */}
-                <aside className="w-full lg:w-64 border-r border-stone-100 bg-stone-50/50 flex flex-col p-6 overflow-y-auto">
+                <aside className="hidden lg:flex w-full lg:w-64 border-r border-stone-100 bg-stone-50/50 flex-col p-6 overflow-y-auto">
                     <button
                         onClick={() => router.push('/user/dashboard')}
                         className="flex items-center gap-2 text-xs font-medium text-stone-500 hover:text-stone-800 mb-8 transition-colors group"
@@ -477,8 +479,22 @@ export default function WizardPage() {
 
                 {/* Main Content Area */}
                 <main className="flex-1 flex flex-col relative overflow-hidden bg-white">
+                    <div className="lg:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-stone-100 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <button
+                                onClick={() => router.push('/user/dashboard')}
+                                className="flex items-center gap-1.5 text-xs font-medium text-stone-500 hover:text-stone-800 transition-colors"
+                            >
+                                <ArrowLeft className="w-3.5 h-3.5" />
+                                Dashboard
+                            </button>
+                            <span className="text-xs font-semibold text-stone-700">
+                                Step {currentStep}/7: {currentStepMeta?.name || 'Wizard'}
+                            </span>
+                        </div>
+                    </div>
                     <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                        <div className="h-full w-full max-w-3xl mx-auto p-8 lg:p-12 flex flex-col">
+                        <div className="h-full w-full max-w-3xl mx-auto p-4 sm:p-6 lg:p-12 flex flex-col text-[13px] sm:text-[14px] lg:text-base">
                             {/* Step Components */}
                             <div className="flex-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 {currentStep === 1 && (
@@ -623,17 +639,28 @@ function StepLocked({ stepName }: { stepName: string }) {
 
 function StepType({ wizardData, onNext }: {
     wizardData: WizardData;
-    onNext: (type: 'individual' | 'company') => void
+    onNext: (type: 'individual' | 'company') => Promise<void> | void
 }) {
     const [selected, setSelected] = useState<'individual' | 'company'>(
         wizardData?.portfolioType || 'individual'
     );
+    const [isContinuing, setIsContinuing] = useState(false);
+
+    const handleContinue = async () => {
+        if (isContinuing) return;
+        setIsContinuing(true);
+        try {
+            await Promise.resolve(onNext(selected));
+        } finally {
+            setIsContinuing(false);
+        }
+    };
 
     return (
         <div className="flex flex-col h-full justify-center">
             <div className="mb-10 text-center">
                 <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Step 1</span>
-                <h2 className="text-4xl font-serif text-stone-900 mt-3 mb-4">Who is this portfolio for?</h2>
+                <h2 className="text-3xl sm:text-4xl font-serif text-stone-900 mt-3 mb-4">Who is this portfolio for?</h2>
                 <p className="text-stone-500 max-w-md mx-auto">Choose the structure that best fits your needs. This helps us customize the sections.</p>
             </div>
 
@@ -675,10 +702,20 @@ function StepType({ wizardData, onNext }: {
 
             <div className="flex justify-center">
                 <button
-                    onClick={() => onNext(selected)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-full hover:bg-stone-800 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
+                    onClick={handleContinue}
+                    disabled={isContinuing}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-full hover:bg-stone-800 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                    Continue <ChevronRight className="w-4 h-4" />
+                    {isContinuing ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Continuing...
+                        </>
+                    ) : (
+                        <>
+                            Continue <ChevronRight className="w-4 h-4" />
+                        </>
+                    )}
                 </button>
             </div>
         </div>
@@ -691,15 +728,26 @@ function StepType({ wizardData, onNext }: {
 
 function StepAbout({ wizardData, onNext, onBack }: {
     wizardData: WizardData;
-    onNext: (data: Partial<WizardData>) => void;
+    onNext: (data: Partial<WizardData>) => Promise<void> | void;
     onBack: () => void;
 }) {
     const [name, setName] = useState(wizardData?.name || '');
     const [profession, setProfession] = useState(wizardData?.profession || '');
     const [description, setDescription] = useState(wizardData?.description || '');
+    const [isContinuing, setIsContinuing] = useState(false);
 
     const isCompany = wizardData?.portfolioType === 'company';
     const isValid = name.trim() && description.trim().length >= 200;
+
+    const handleContinue = async () => {
+        if (!isValid || isContinuing) return;
+        setIsContinuing(true);
+        try {
+            await Promise.resolve(onNext({ name, profession, description }));
+        } finally {
+            setIsContinuing(false);
+        }
+    };
 
     return (
         <div>
@@ -728,7 +776,7 @@ function StepAbout({ wizardData, onNext, onBack }: {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder={isCompany ? "Acme Inc." : "Jane Doe"}
-                            className="w-full px-0 py-2 border-b-2 border-stone-200 focus:border-stone-900 focus:outline-none bg-transparent transition-colors text-lg placeholder:text-stone-300 font-medium"
+                            className="w-full px-0 py-2 border-b-2 border-stone-200 focus:border-stone-900 focus:outline-none bg-transparent transition-colors text-base sm:text-lg placeholder:text-stone-300 font-medium"
                         />
                     </div>
                     <div className="space-y-2">
@@ -740,7 +788,7 @@ function StepAbout({ wizardData, onNext, onBack }: {
                             value={profession}
                             onChange={(e) => setProfession(e.target.value)}
                             placeholder={isCompany ? "Software Development" : "Visual Designer"}
-                            className="w-full px-0 py-2 border-b-2 border-stone-200 focus:border-stone-900 focus:outline-none bg-transparent transition-colors text-lg placeholder:text-stone-300 font-medium"
+                            className="w-full px-0 py-2 border-b-2 border-stone-200 focus:border-stone-900 focus:outline-none bg-transparent transition-colors text-base sm:text-lg placeholder:text-stone-300 font-medium"
                         />
                     </div>
                 </div>
@@ -774,14 +822,23 @@ function StepAbout({ wizardData, onNext, onBack }: {
                     Back
                 </button>
                 <button
-                    onClick={() => onNext({ name, profession, description })}
-                    disabled={!isValid}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md active:scale-95 ${isValid
+                    onClick={handleContinue}
+                    disabled={!isValid || isContinuing}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md active:scale-95 ${isValid && !isContinuing
                         ? 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow-lg hover:-translate-y-0.5'
                         : 'bg-stone-200 text-stone-400 cursor-not-allowed shadow-none'
                         }`}
                 >
-                    Continue <ChevronRight className="w-4 h-4" />
+                    {isContinuing ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Continuing...
+                        </>
+                    ) : (
+                        <>
+                            Continue <ChevronRight className="w-4 h-4" />
+                        </>
+                    )}
                 </button>
             </div>
         </div>
@@ -796,7 +853,7 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
     portfolio: Portfolio;
     wizardData: WizardData;
     maxSections: number;
-    onNext: (sections: SectionType[]) => void;
+    onNext: (sections: SectionType[]) => Promise<void> | void;
     onBack: () => void;
     setMaxSections: (n: number) => void;
 }) {
@@ -806,6 +863,7 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
     const [selectedSections, setSelectedSections] = useState<SectionType[]>(
         wizardData?.selectedSections || []
     );
+    const [isContinuing, setIsContinuing] = useState(false);
     const [hasRecommended, setHasRecommended] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -866,12 +924,28 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
     };
 
     const allSections = Object.keys(SECTION_LABELS) as SectionType[];
+    const canContinue =
+        selectedSections.length > 0 &&
+        !isThinking &&
+        selectedSections.includes('hero') &&
+        selectedSections.includes('contact') &&
+        !isContinuing;
+
+    const handleContinue = async () => {
+        if (!canContinue) return;
+        setIsContinuing(true);
+        try {
+            await Promise.resolve(onNext(selectedSections));
+        } finally {
+            setIsContinuing(false);
+        }
+    };
 
     return (
         <div>
             <div className="mb-8">
                 <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Step 3</span>
-                <h2 className="text-3xl font-serif text-stone-900 mt-2 mb-2">Select Sections</h2>
+                <h2 className="text-2xl sm:text-3xl font-serif text-stone-900 mt-2 mb-2">Select Sections</h2>
                 <p className="text-stone-500">Choose up to {maxSections - 2} custom sections for your portfolio. Hero and Contact are always included.</p>
             </div>
 
@@ -912,10 +986,10 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
             {/* Section Selection */}
             {hasRecommended && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 border-b border-stone-100 pb-2">
                         <span className="text-sm font-medium text-stone-900">
                             Selected: <span className="text-stone-500">{selectedSections.length}/{maxSections} total</span>
-                            <span className="text-xs text-stone-400 ml-2">({maxSections - 2} custom + Hero + Contact)</span>
+                            <span className="block sm:inline text-xs text-stone-400 sm:ml-2">({maxSections - 2} custom + Hero + Contact)</span>
                         </span>
                         {selectedSections.length >= maxSections && (
                             <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100">
@@ -924,7 +998,7 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
                         )}
                     </div>
 
-                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-8">
                         {allSections.map((section) => {
                             const info = SECTION_LABELS[section];
                             const isSelected = selectedSections.includes(section);
@@ -937,7 +1011,7 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
                                     key={section}
                                     onClick={() => canSelect && toggleSection(section)}
                                     disabled={(!canSelect && !isSelected) || (isMandatory && isSelected)}
-                                    className={`relative px-3 py-2 rounded-lg border text-xs font-medium transition-all text-center ${isSelected
+                                    className={`relative px-2 py-2.5 min-h-[54px] rounded-lg border text-xs font-medium transition-all text-center leading-tight break-words flex items-center justify-center ${isSelected
                                         ? isMandatory
                                             ? 'border-blue-200 bg-blue-50 text-blue-900 cursor-default'
                                             : 'border-yellow-200 bg-yellow-100 text-yellow-900 shadow-sm'
@@ -972,16 +1046,20 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
                     Back
                 </button>
                 <button
-                    onClick={() => onNext(selectedSections)}
-                    disabled={
-                        selectedSections.length === 0 ||
-                        isThinking ||
-                        !selectedSections.includes('hero') ||
-                        !selectedSections.includes('contact')
-                    }
+                    onClick={handleContinue}
+                    disabled={!canContinue}
                     className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-full hover:bg-stone-800 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                 >
-                    Continue <ChevronRight className="w-4 h-4" />
+                    {isContinuing ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Continuing...
+                        </>
+                    ) : (
+                        <>
+                            Continue <ChevronRight className="w-4 h-4" />
+                        </>
+                    )}
                 </button>
             </div>
         </div>
@@ -1030,7 +1108,7 @@ const Typewriter = ({ text, speed = 10, onComplete, onUpdate }: { text: string; 
 function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }: {
     portfolio: Portfolio;
     wizardData: WizardData;
-    onNext: () => void;
+    onNext: () => Promise<void> | void;
     onBack: () => void;
     refreshPortfolio: () => Promise<void>;
 }) {
@@ -1056,6 +1134,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
     const draftContentRef = useRef<HTMLDivElement>(null);
     const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
     const [showBackConfirm, setShowBackConfirm] = useState(false);
+    const [isFinishing, setIsFinishing] = useState(false);
 
     const currentSection = sections[currentIdx];
 
@@ -1411,6 +1490,16 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
         }
     };
 
+    const handleFinish = async () => {
+        if (completedCount < sections.length || isFinishing) return;
+        setIsFinishing(true);
+        try {
+            await Promise.resolve(onNext());
+        } finally {
+            setIsFinishing(false);
+        }
+    };
+
     const isCurrentSectionComplete = currentSection && savedSections[currentSection.id];
     const completedCount = sections.filter(s => savedSections[s.id]).length;
 
@@ -1430,10 +1519,10 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
     return (
         <div className="flex flex-col h-full">
             {/* Header Area */}
-            <div className="flex items-end justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-4 sm:mb-6 gap-2">
                 <div>
                     <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Step 4</span>
-                    <h2 className="text-3xl font-serif text-stone-900 mt-2">
+                    <h2 className="text-2xl sm:text-3xl font-serif text-stone-900 mt-2">
                         Build Content - {sectionInfo?.label || currentSection?.type}
                     </h2>
                     <p className="text-sm text-stone-500 mt-1">Talk to AI to get help or generate content.</p>
@@ -1470,7 +1559,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 </p>
             </div>
             {/* Chat Interface - Fixed Box */}
-            <div className="rounded-2xl border border-stone-200 bg-white h-[350px] flex flex-col overflow-hidden mb-6 shadow-sm relative">
+            <div className="rounded-2xl border border-stone-200 bg-white h-[420px] sm:h-[350px] flex flex-col overflow-hidden mb-6 shadow-sm relative">
                 <div
                     ref={chatContainerRef}
                     onScroll={handleScroll}
@@ -1670,14 +1759,23 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                         </button>
                     ) : (
                         <button
-                            onClick={onNext}
-                            disabled={completedCount < sections.length}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md ${completedCount < sections.length
+                            onClick={handleFinish}
+                            disabled={completedCount < sections.length || isFinishing}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md ${completedCount < sections.length || isFinishing
                                 ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
                                 : 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow-lg'
                                 }`}
                         >
-                            Finish <Check className="w-4 h-4" />
+                            {isFinishing ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Continuing...
+                                </>
+                            ) : (
+                                <>
+                                    Finish <Check className="w-4 h-4" />
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
@@ -1692,7 +1790,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
 function StepFeatures({ wizardData, onNext, onBack }: {
     wizardData: WizardData;
-    onNext: (featuresData: Partial<WizardData>) => void;
+    onNext: (featuresData: Partial<WizardData>) => Promise<void> | void;
     onBack: () => void;
 }) {
     const PERSONALITIES = [
@@ -1727,6 +1825,7 @@ function StepFeatures({ wizardData, onNext, onBack }: {
     const [appointmentNotes, setAppointmentNotes] = useState(
         wizardData?.aiCapabilities?.appointment_requests?.settings?.booking_notes || ''
     );
+    const [isContinuing, setIsContinuing] = useState(false);
 
     useEffect(() => {
         if (!hasAiManager) {
@@ -1757,7 +1856,8 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         setAppointmentDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
+        if (isContinuing) return;
         const capabilityPayload = AI_CAPABILITY_OPTIONS.reduce((acc, option) => {
             const enabled = Boolean(aiCapabilities[option.key]?.enabled);
             if (option.key === 'appointment_requests') {
@@ -1782,14 +1882,19 @@ function StepFeatures({ wizardData, onNext, onBack }: {
             return acc;
         }, {} as Record<string, { enabled: boolean; settings?: any }>);
 
-        onNext({
-            hasAiManager,
-            aiManagerName: hasAiManager ? aiManagerName.trim() : '',
-            aiManagerPersonality: hasAiManager ? aiManagerPersonality : '',
-            aiManagerHasPortfolioAccess: hasAiManager ? aiManagerHasPortfolioAccess : false,
-            aiManagerFinalized: hasAiManager ? aiManagerFinalized : false,
-            aiCapabilities: capabilityPayload,
-        });
+        setIsContinuing(true);
+        try {
+            await Promise.resolve(onNext({
+                hasAiManager,
+                aiManagerName: hasAiManager ? aiManagerName.trim() : '',
+                aiManagerPersonality: hasAiManager ? aiManagerPersonality : '',
+                aiManagerHasPortfolioAccess: hasAiManager ? aiManagerHasPortfolioAccess : false,
+                aiManagerFinalized: hasAiManager ? aiManagerFinalized : false,
+                aiCapabilities: capabilityPayload,
+            }));
+        } finally {
+            setIsContinuing(false);
+        }
     };
 
     return (
@@ -1797,7 +1902,7 @@ function StepFeatures({ wizardData, onNext, onBack }: {
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Step 5</span>
                 <div className="mt-1 mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-3xl font-bold text-stone-900">Add your AI Representative</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-stone-900">Add your AI Representative</h2>
                     <a
                         href="https://archestra.ai/"
                         target="_blank"
@@ -2026,13 +2131,22 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                 </button>
                 <button
                     onClick={handleContinue}
-                    disabled={hasAiManager && !aiManagerFinalized}
-                    className={`flex items-center gap-2 px-6 py-2.5 font-medium rounded-lg transition-all shadow-sm ${hasAiManager && !aiManagerFinalized
+                    disabled={(hasAiManager && !aiManagerFinalized) || isContinuing}
+                    className={`flex items-center gap-2 px-6 py-2.5 font-medium rounded-lg transition-all shadow-sm ${hasAiManager && !aiManagerFinalized || isContinuing
                         ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
                         : 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow active:scale-95'
                         }`}
                 >
-                    Continue <ChevronRight className="w-4 h-4" />
+                    {isContinuing ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Continuing...
+                        </>
+                    ) : (
+                        <>
+                            Continue <ChevronRight className="w-4 h-4" />
+                        </>
+                    )}
                 </button>
             </div>
         </div>
@@ -2044,21 +2158,27 @@ function StepFeatures({ wizardData, onNext, onBack }: {
 
 function StepTheme({ wizardData, onNext, onBack }: {
     wizardData: WizardData;
-    onNext: (theme: string, colorScheme: { name: string; colors: string[] }) => void;
+    onNext: (theme: string, colorScheme: { name: string; colors: string[] }) => Promise<void> | void;
     onBack: () => void;
 }) {
     const [selectedTheme, setSelectedTheme] = useState(wizardData?.theme || '');
     const [selectedColorScheme, setSelectedColorScheme] = useState<string>(
         wizardData?.colorScheme?.name || ''
     );
+    const [isContinuing, setIsContinuing] = useState(false);
 
     const isValid = selectedTheme && selectedColorScheme;
 
-    const handleContinue = () => {
-        if (!isValid) return;
+    const handleContinue = async () => {
+        if (!isValid || isContinuing) return;
         const scheme = COLOR_SCHEMES.find(s => s.id === selectedColorScheme);
         if (scheme) {
-            onNext(selectedTheme, { name: scheme.name, colors: scheme.colors });
+            setIsContinuing(true);
+            try {
+                await Promise.resolve(onNext(selectedTheme, { name: scheme.name, colors: scheme.colors }));
+            } finally {
+                setIsContinuing(false);
+            }
         }
     };
 
@@ -2066,7 +2186,7 @@ function StepTheme({ wizardData, onNext, onBack }: {
         <div>
             <div className="mb-8">
                 <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Step 6</span>
-                <h2 className="text-3xl font-serif text-stone-900 mt-2 mb-2">Choose Your Style</h2>
+                <h2 className="text-2xl sm:text-3xl font-serif text-stone-900 mt-2 mb-2">Choose Your Style</h2>
                 <p className="text-stone-500">Select a theme and color scheme for your portfolio.</p>
             </div>
 
@@ -2158,13 +2278,22 @@ function StepTheme({ wizardData, onNext, onBack }: {
                 </button>
                 <button
                     onClick={handleContinue}
-                    disabled={!isValid}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md active:scale-95 ${isValid
+                    disabled={!isValid || isContinuing}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all shadow-md active:scale-95 ${isValid && !isContinuing
                         ? 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow-lg hover:-translate-y-0.5'
                         : 'bg-stone-200 text-stone-400 cursor-not-allowed shadow-none'
                         }`}
                 >
-                    Continue <ChevronRight className="w-4 h-4" />
+                    {isContinuing ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Continuing...
+                        </>
+                    ) : (
+                        <>
+                            Continue <ChevronRight className="w-4 h-4" />
+                        </>
+                    )}
                 </button>
             </div>
         </div>
@@ -2283,7 +2412,7 @@ function StepPublish({ portfolio, wizardData, onBack }: {
         <div>
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Final Step</span>
-                <h2 className="text-3xl font-bold text-stone-900 mt-1 mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-stone-900 mt-1 mb-2">
                     {isPublished ? 'Portfolio is Live!' : 'Claim your link'}
                 </h2>
                 <p className="text-stone-600">
@@ -2295,7 +2424,7 @@ function StepPublish({ portfolio, wizardData, onBack }: {
                 <div className="w-16 h-16 bg-white rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-sm mb-4">
                     {isPublished ? <PartyPopper className="w-8 h-8 text-purple-600" /> : <Rocket className="w-8 h-8 text-stone-900" />}
                 </div>
-                <h3 className="text-xl font-bold text-stone-900 mb-2">
+                <h3 className="text-lg sm:text-xl font-bold text-stone-900 mb-2">
                     {isPublished ? 'Congratulations!' : "You're almost there!"}
                 </h3>
                 <p className="text-stone-600 mb-6 max-w-sm mx-auto">

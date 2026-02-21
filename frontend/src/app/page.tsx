@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 /* ─── Typewriter Hook ─── */
 function useTypewriter(words: string[], speed = 50, pause = 2000) {
@@ -44,6 +45,7 @@ function useTypewriter(words: string[], speed = 50, pause = 2000) {
 }
 
 export default function Home() {
+  const { loginWithGoogle } = useAuth();
   const commonTextStyle = "text-[14px] sm:text-[15px] md:text-[17px]";
   const commonGap = "gap-[1vh] min-[480px]:gap-[0.5vw]";
   const demoVideoUrl = 'https://www.youtube.com/embed/tsDKUfw1SX8';
@@ -131,12 +133,13 @@ export default function Home() {
 
         {/* Bottom Footer: CTA - Removed bg-gray-900/50 */}
         <div className="w-full border-t border-gray-800 py-6 text-center">
-          <a
-            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google`}
+          <button
+            type="button"
+            onClick={loginWithGoogle}
             className={`inline-block bg-[#FFF9C4] text-black px-[4vh] py-[1.5vh] min-[480px]:px-[2vw] min-[480px]:py-[0.8vw] rounded-full font-bold hover:bg-[#FFF9C7] transition-transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(212,160,23,0.4)] ${commonTextStyle}`}
           >
             Start now
-          </a>
+          </button>
         </div>
 
       </main>

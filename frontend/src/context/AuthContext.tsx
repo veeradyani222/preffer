@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { API_URL, apiFetch } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { isLinkedInInAppBrowser } from '@/lib/browserGuards';
 
 export interface User {
     id: string;
@@ -70,6 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const loginWithGoogle = () => {
+        if (isLinkedInInAppBrowser()) {
+            router.push('/open-in-browser');
+            return;
+        }
+
         // Redirect to backend Google auth endpoint
         window.location.href = `${API_URL}/auth/google`;
     };
