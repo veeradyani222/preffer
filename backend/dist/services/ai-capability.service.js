@@ -8,6 +8,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const database_1 = __importDefault(require("../config/database"));
 const ai_capabilities_1 = require("../constants/ai-capabilities");
 const gemini_service_1 = require("./gemini.service");
+const archestra_outgoing_email_service_1 = __importDefault(require("./archestra-outgoing-email.service"));
 const logger_1 = __importDefault(require("../utils/logger"));
 const CAPABILITY_TABLES = {
     lead_capture: 'ai_leads',
@@ -263,6 +264,24 @@ class AICapabilityService {
                     status: (record === null || record === void 0 ? void 0 : record.status) || tableData.status || 'new',
                     operation,
                 }, 'success');
+                if (action.capability_key === 'lead_capture' && operation === 'created') {
+                    const recipientEmail = this.asNullableText(record === null || record === void 0 ? void 0 : record.email) || this.asNullableText(tableData === null || tableData === void 0 ? void 0 : tableData.email);
+                    const recipientName = this.asNullableText(record === null || record === void 0 ? void 0 : record.name) || this.asNullableText(tableData === null || tableData === void 0 ? void 0 : tableData.name);
+                    if (recipientEmail) {
+                        await archestra_outgoing_email_service_1.default.sendLeadFollowUpEmail({
+                            portfolioId: input.portfolioId,
+                            recipientEmail,
+                            recipientName,
+                            intentSummary: this.asNullableText(record === null || record === void 0 ? void 0 : record.intent_summary) || this.asNullableText(tableData === null || tableData === void 0 ? void 0 : tableData.intent_summary),
+                        }).catch((emailError) => {
+                            logger_1.default.warn('Lead follow-up email trigger failed', {
+                                portfolioId: input.portfolioId,
+                                capability: action.capability_key,
+                                error: (emailError === null || emailError === void 0 ? void 0 : emailError.message) || String(emailError),
+                            });
+                        });
+                    }
+                }
             }
             catch (error) {
                 await this.logToolEvent(input.portfolioId, action.capability_key, toolName, {

@@ -80,6 +80,7 @@ class PortfolioController {
         safeHistory: PublicChatMessage[],
         analyticsContext?: string
     ): Promise<string> {
+        const hasAssistantHistory = safeHistory.some((item) => item.role === 'assistant');
         const conversation = safeHistory
             .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
             .join('\n');
@@ -91,7 +92,8 @@ class PortfolioController {
         const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
 
 Rules:
-- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
+- Introduce yourself naturally as ${portfolio.ai_manager_name} only if this is your first reply in this conversation.
+- If you have already replied earlier in this conversation, never re-introduce yourself.
 - Answer only based on the portfolio context below.
 - Never just say unnecessary stuff based on the instructions, you have to reply based on the instructions, not just say them anywhere.
 - If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
@@ -113,6 +115,9 @@ ${analyticsContext || 'No analytics context available.'}
 
 Recent Conversation:
 ${conversation || 'No prior conversation.'}
+
+Introduction State:
+${hasAssistantHistory ? `You have already replied earlier in this conversation. Do not introduce yourself again.` : `No assistant reply exists yet in this conversation. You may include one brief introduction.`}
 
 Visitor's latest message:
 ${message.trim()}

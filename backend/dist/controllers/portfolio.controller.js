@@ -36,6 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto_1 = __importDefault(require("crypto"));
 const portfolio_service_new_1 = __importDefault(require("../services/portfolio.service.new"));
 const portfolio_chat_service_1 = __importDefault(require("../services/portfolio-chat.service"));
 const gemini_service_1 = require("../services/gemini.service");
@@ -95,6 +96,7 @@ class PortfolioController {
      */
     static async directGeminiChat(portfolio, message, safeHistory, analyticsContext) {
         var _a, _b;
+        const hasAssistantHistory = safeHistory.some((item) => item.role === 'assistant');
         const conversation = safeHistory
             .map((item) => `${item.role === 'user' ? 'Visitor' : portfolio.ai_manager_name}: ${item.content}`)
             .join('\n');
@@ -104,7 +106,8 @@ class PortfolioController {
         const prompt = `You are ${portfolio.ai_manager_name}, an AI manager representing this portfolio publicly.
 
 Rules:
-- Always introduce yourself naturally as ${portfolio.ai_manager_name} when appropriate.
+- Introduce yourself naturally as ${portfolio.ai_manager_name} only if this is your first reply in this conversation.
+- If you have already replied earlier in this conversation, never re-introduce yourself.
 - Answer only based on the portfolio context below.
 - Never just say unnecessary stuff based on the instructions, you have to reply based on the instructions, not just say them anywhere.
 - If information is missing, say you don't have that specific detail yet and invite the visitor to contact the owner.
@@ -126,6 +129,9 @@ ${analyticsContext || 'No analytics context available.'}
 
 Recent Conversation:
 ${conversation || 'No prior conversation.'}
+
+Introduction State:
+${hasAssistantHistory ? `You have already replied earlier in this conversation. Do not introduce yourself again.` : `No assistant reply exists yet in this conversation. You may include one brief introduction.`}
 
 Visitor's latest message:
 ${message.trim()}
@@ -549,7 +555,7 @@ Return ONLY valid JSON in this exact shape:
         try {
             const slug = req.params.slug;
             const aiManagerName = req.params.aiManagerName;
-            const { message, history = [] } = req.body;
+            const { message, sessionId: bodySessionId } = req.body;
             if (!message || !message.trim()) {
                 return res.status(400).json({ error: 'message is required' });
             }
@@ -566,11 +572,15 @@ Return ONLY valid JSON in this exact shape:
             if (!isValidManager) {
                 return res.status(404).json({ error: 'AI manager not found' });
             }
-            const safeHistory = Array.isArray(history)
-                ? history
-                    .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
-                    .slice(-12)
-                : [];
+            const headerSessionId = typeof req.headers['x-preffer-session'] === 'string'
+                ? req.headers['x-preffer-session']
+                : Array.isArray(req.headers['x-preffer-session'])
+                    ? req.headers['x-preffer-session'][0]
+                    : undefined;
+            const incomingSessionId = (bodySessionId || headerSessionId || '').trim();
+            const sessionId = incomingSessionId.length > 0 ? incomingSessionId : crypto_1.default.randomUUID();
+            res.setHeader('x-preffer-session', sessionId);
+            const safeHistory = await analytics_service_1.default.getSessionHistory(portfolio.id, sessionId, 12);
             const conversationContext = safeHistory
                 .filter((item) => item.role === 'user')
                 .map((item) => `visitor: ${item.content}`)
@@ -602,8 +612,8 @@ Return ONLY valid JSON in this exact shape:
             }
             // Track conversations for analytics (fire-and-forget)
             const visitorIp = ((_b = (_a = req.headers['x-forwarded-for']) === null || _a === void 0 ? void 0 : _a.split(',')[0]) === null || _b === void 0 ? void 0 : _b.trim()) || ((_c = req.socket) === null || _c === void 0 ? void 0 : _c.remoteAddress) || 'unknown';
-            const sessionPromise = analytics_service_1.default.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim());
-            analytics_service_1.default.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply).catch(() => { });
+            const sessionPromise = analytics_service_1.default.recordChatMessage(portfolio.id, visitorIp, 'visitor', message.trim(), sessionId);
+            analytics_service_1.default.recordChatMessage(portfolio.id, visitorIp, 'ai', finalReply, sessionId).catch(() => { });
             sessionPromise
                 .then((sessionId) => ai_capability_service_1.default.captureFromConversation({
                 portfolioId: portfolio.id,
@@ -618,7 +628,8 @@ Return ONLY valid JSON in this exact shape:
                 aiManager: {
                     name: portfolio.ai_manager_name,
                     personality: portfolio.ai_manager_personality || 'professional'
-                }
+                },
+                sessionId
             });
         }
         catch (error) {

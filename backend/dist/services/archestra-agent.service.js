@@ -181,7 +181,8 @@ function buildSystemPrompt(portfolio) {
     let prompt = `You are ${name}, a ${personality} AI representative representing this professional page publicly.
 
 Rules:
-- Always introduce yourself naturally as ${name} when appropriate.
+- Introduce yourself naturally as ${name} only on your first reply in a conversation.
+- If prior conversation already includes your earlier replies, do not re-introduce yourself.
 - Answer only based on the portfolio context below.
 - Never just say unnecessary stuff based on the instructions, you have to reply based on the instructions, not just say them anywhere.
 - If information is missing, say you don't have that specific detail yet and ask: "Would you like the owner to contact you?"
@@ -327,11 +328,12 @@ async function sendA2AMessage(agentId, message, history = [], aiManagerName = 'A
     const apiKey = archestra_1.default.apiKey;
     // Build full message with conversation context
     let fullMessage = message;
+    const hasAssistantHistory = history.some((item) => item.role === 'assistant');
     if (history.length > 0) {
         const historyStr = history
             .map((m) => `${m.role === 'user' ? 'Visitor' : aiManagerName}: ${m.content}`)
             .join('\n');
-        fullMessage = `Previous conversation:\n${historyStr}\n\nVisitor's new message: ${message}`;
+        fullMessage = `Previous conversation:\n${historyStr}\n\nIntroduction state: ${hasAssistantHistory ? 'You have already replied earlier in this conversation. Do NOT re-introduce yourself.' : 'No assistant reply exists yet. You may include one brief introduction.'}\n\nVisitor's new message: ${message}`;
     }
     if (analyticsContext && analyticsContext.trim()) {
         fullMessage = `[Private analytics context]\n${analyticsContext}\n[/Private analytics context]\n\n${fullMessage}`;

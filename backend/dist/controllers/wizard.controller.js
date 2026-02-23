@@ -23,6 +23,89 @@ const pendingContentStore = new Map();
 // WIZARD CONTROLLER
 // ============================================
 class WizardController {
+    static normalizeExternalWebLink(value, options) {
+        const raw = typeof value === 'string' ? value.trim() : '';
+        if (!raw)
+            return '';
+        // Prevent internal/relative route links.
+        if (raw.startsWith('/'))
+            return '';
+        if (/\s/.test(raw))
+            return '';
+        const disallowedHosts = new Set(['preffer.me', 'www.preffer.me', 'prefer.me', 'www.prefer.me']);
+        const blockPreferProjectsPath = Boolean(options === null || options === void 0 ? void 0 : options.blockPreferProjectsPath);
+        const isDisallowedProjectPath = (url) => {
+            if (!blockPreferProjectsPath)
+                return false;
+            const host = url.hostname.toLowerCase();
+            const path = (url.pathname || '').toLowerCase();
+            return disallowedHosts.has(host) && path.startsWith('/projects');
+        };
+        try {
+            const parsed = new URL(raw);
+            if (!['http:', 'https:'].includes(parsed.protocol))
+                return '';
+            if (isDisallowedProjectPath(parsed))
+                return '';
+            return parsed.toString();
+        }
+        catch (_a) {
+            // If no protocol, treat as external host/path and force https.
+            try {
+                const parsed = new URL(`https://${raw}`);
+                if (isDisallowedProjectPath(parsed))
+                    return '';
+                return parsed.toString();
+            }
+            catch (_b) {
+                return '';
+            }
+        }
+    }
+    static sanitizeProjectsContent(content) {
+        if (!content || typeof content !== 'object')
+            return content;
+        const items = Array.isArray(content.items) ? content.items : [];
+        return {
+            ...content,
+            items: items.map((item) => {
+                if (!item || typeof item !== 'object')
+                    return item;
+                const candidateLink = typeof item.link === 'string'
+                    ? item.link
+                    : (typeof item.url === 'string' ? item.url : '');
+                return {
+                    ...item,
+                    link: WizardController.normalizeExternalWebLink(candidateLink, { blockPreferProjectsPath: true }),
+                };
+            }),
+        };
+    }
+    static sanitizeContactContent(content) {
+        if (!content || typeof content !== 'object')
+            return content;
+        const urlFields = ['website', 'github', 'linkedin', 'twitter', 'instagram', 'dribbble', 'behance'];
+        const sanitized = { ...content };
+        for (const field of urlFields) {
+            if (typeof sanitized[field] === 'string') {
+                sanitized[field] = WizardController.normalizeExternalWebLink(sanitized[field]);
+            }
+        }
+        if (Array.isArray(sanitized.links)) {
+            sanitized.links = sanitized.links
+                .map((item) => {
+                if (!item || typeof item !== 'object')
+                    return null;
+                const candidate = item.url || item.href || item.value || item.text || '';
+                const safe = WizardController.normalizeExternalWebLink(candidate);
+                if (!safe)
+                    return null;
+                return { ...item, url: safe };
+            })
+                .filter(Boolean);
+        }
+        return sanitized;
+    }
     static tryParseJsonString(value) {
         if (typeof value !== 'string')
             return value;
@@ -584,6 +667,12 @@ class WizardController {
                 logger_1.default.info('Using pending content', { key: pendingKey });
             }
             contentToSave = WizardController.tryParseJsonString(contentToSave);
+            if (section.type === 'projects') {
+                contentToSave = WizardController.sanitizeProjectsContent(contentToSave);
+            }
+            else if (section.type === 'contact') {
+                contentToSave = WizardController.sanitizeContactContent(contentToSave);
+            }
             logger_1.default.section('SAVE', section.type, { contentKeys: Object.keys(contentToSave || {}) });
             // Update section content
             const updatedSections = [...portfolio.sections];

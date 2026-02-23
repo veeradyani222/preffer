@@ -13,6 +13,61 @@ const logger_1 = __importDefault(require("../utils/logger"));
 // ASSISTANT CHAT SERVICE — Fully Conversational
 // ============================================
 class AssistantChatService {
+    static isGenericTitle(title) {
+        const value = (title || '').trim().toLowerCase();
+        if (!value)
+            return true;
+        if (value === 'portfolio edits' || value === 'ai manager setup')
+            return true;
+        if (value.startsWith('professional page:'))
+            return true;
+        if (value.startsWith('ai representative:'))
+            return true;
+        return false;
+    }
+    static buildFallbackTitle(contextType, userMessage) {
+        const cleaned = userMessage
+            .replace(/[`"'()[\]{}]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const words = cleaned.split(' ').filter(Boolean).slice(0, 4);
+        if (words.length === 0) {
+            return contextType === 'portfolio' ? 'Portfolio Session' : 'AI Manager Session';
+        }
+        const core = words.join(' ');
+        return contextType === 'portfolio' ? `Edit: ${core}` : `AI: ${core}`;
+    }
+    static async generateSmartTitle(contextType, portfolioName, aiManagerName, userMessage) {
+        const prompt = `Create a concise chat title.
+
+Context type: ${contextType}
+Portfolio name: ${portfolioName || 'Untitled'}
+AI manager name: ${aiManagerName || 'N/A'}
+User first message: ${userMessage}
+
+Rules:
+- 2 to 5 words
+- Max 48 characters
+- Specific to user intent
+- No quotes, no punctuation at start/end
+- Return plain text only`;
+        try {
+            const text = await (0, gemini_service_1.generateWithFallback)({ temperature: 0.3, maxOutputTokens: 40 }, prompt);
+            const singleLine = (text || '').split('\n')[0].trim();
+            const cleaned = singleLine
+                .replace(/^["'`]+|["'`]+$/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 48);
+            if (!cleaned) {
+                return this.buildFallbackTitle(contextType, userMessage);
+            }
+            return cleaned;
+        }
+        catch (_a) {
+            return this.buildFallbackTitle(contextType, userMessage);
+        }
+    }
     // ------------------------------------------
     // JSON helpers (reused from ai.service pattern)
     // ------------------------------------------
@@ -340,6 +395,13 @@ class AssistantChatService {
         // (with portfolio_name, etc.), but for a simple rename, returning the updated row is often enough 
         // IF the frontend updates optimistically. However, to be safe, let's fetch the full object.
         return this.getChatById(chatId, userId);
+    }
+    static async maybeAutoTitleChat(chat, userId, firstUserMessage) {
+        if (!this.isGenericTitle(chat.title)) {
+            return chat;
+        }
+        const title = await this.generateSmartTitle(chat.context_type, chat.portfolio_name || 'Untitled Portfolio', chat.ai_manager_name, firstUserMessage);
+        return this.renameChat(chat.id, userId, title);
     }
     static async createChat(userId, contextType, portfolioId, title) {
         const portfolio = await portfolio_service_new_1.default.getById(portfolioId, userId);

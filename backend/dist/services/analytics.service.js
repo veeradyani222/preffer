@@ -115,21 +115,37 @@ class AnalyticsService {
             console.error('Failed to record page view:', error);
         }
     }
-    static async recordChatMessage(portfolioId, visitorIp, role, content) {
+    static async recordChatMessage(portfolioId, visitorIp, role, content, sessionKey) {
         try {
             const ip = visitorIp || 'unknown';
-            const sessionResult = await database_1.default.query(`SELECT id FROM ai_manager_sessions
-                 WHERE portfolio_id = $1 AND visitor_ip = $2
-                   AND last_message_at > NOW() - INTERVAL '30 minutes'
-                 ORDER BY last_message_at DESC LIMIT 1`, [portfolioId, ip]);
+            let sessionResult;
+            if (sessionKey) {
+                sessionResult = await database_1.default.query(`SELECT id FROM ai_manager_sessions
+                     WHERE portfolio_id = $1 AND session_key = $2
+                     ORDER BY last_message_at DESC LIMIT 1`, [portfolioId, sessionKey]);
+            }
+            else {
+                sessionResult = await database_1.default.query(`SELECT id FROM ai_manager_sessions
+                     WHERE portfolio_id = $1 AND visitor_ip = $2
+                       AND last_message_at > NOW() - INTERVAL '30 minutes'
+                     ORDER BY last_message_at DESC LIMIT 1`, [portfolioId, ip]);
+            }
             let sessionId;
             if (sessionResult.rows.length > 0) {
                 sessionId = sessionResult.rows[0].id;
             }
             else {
-                const newSession = await database_1.default.query(`INSERT INTO ai_manager_sessions (portfolio_id, visitor_ip)
-                     VALUES ($1, $2) RETURNING id`, [portfolioId, ip]);
+                const newSession = sessionKey
+                    ? await database_1.default.query(`INSERT INTO ai_manager_sessions (portfolio_id, visitor_ip, session_key)
+                         VALUES ($1, $2, $3) RETURNING id`, [portfolioId, ip, sessionKey])
+                    : await database_1.default.query(`INSERT INTO ai_manager_sessions (portfolio_id, visitor_ip)
+                         VALUES ($1, $2) RETURNING id`, [portfolioId, ip]);
                 sessionId = newSession.rows[0].id;
+            }
+            if (sessionKey) {
+                await database_1.default.query(`UPDATE ai_manager_sessions
+                     SET session_key = $1
+                     WHERE id = $2`, [sessionKey, sessionId]);
             }
             await database_1.default.query(`INSERT INTO ai_manager_messages (session_id, portfolio_id, role, content)
                  VALUES ($1, $2, $3, $4)`, [sessionId, portfolioId, role, content]);
@@ -141,6 +157,30 @@ class AnalyticsService {
         catch (error) {
             console.error('Failed to record chat message:', error);
             return null;
+        }
+    }
+    static async getSessionHistory(portfolioId, sessionKey, limit = 12) {
+        try {
+            const sessionResult = await database_1.default.query(`SELECT id FROM ai_manager_sessions
+                 WHERE portfolio_id = $1 AND session_key = $2
+                 ORDER BY last_message_at DESC LIMIT 1`, [portfolioId, sessionKey]);
+            if (sessionResult.rows.length === 0)
+                return [];
+            const sessionId = sessionResult.rows[0].id;
+            const messagesResult = await database_1.default.query(`SELECT role, content
+                 FROM ai_manager_messages
+                 WHERE session_id = $1
+                 ORDER BY created_at DESC
+                 LIMIT $2`, [sessionId, limit]);
+            const chronological = messagesResult.rows.reverse();
+            return chronological.map((m) => ({
+                role: m.role === 'visitor' ? 'user' : 'assistant',
+                content: m.content
+            }));
+        }
+        catch (error) {
+            console.error('Failed to load session history:', error);
+            return [];
         }
     }
     // ------------------------------------------

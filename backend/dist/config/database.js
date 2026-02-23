@@ -11,7 +11,7 @@ const poolConfig = {
     ssl: {
         rejectUnauthorized: false
     },
-    max: 5,
+    max: parseInt(process.env.PG_POOL_MAX || '8', 10),
     idleTimeoutMillis: 60000,
     connectionTimeoutMillis: 20000,
     keepAlive: true,

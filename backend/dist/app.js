@@ -56,6 +56,7 @@ app.use(passport_1.default.initialize());
 // ============================================
 app.use('/api/', rateLimiter_1.apiLimiter);
 app.use('/api/auth/', rateLimiter_1.authLimiter);
+app.use('/mcp', rateLimiter_1.mcpLimiter);
 // ============================================
 // ROUTES
 // ============================================
