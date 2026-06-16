@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = () => {
+        pendo.track("user_logged_out");
         pendo.clearSession();
         localStorage.removeItem('token');
         localStorage.removeItem('user');

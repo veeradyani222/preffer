@@ -216,6 +216,10 @@ function AssistantChatPageContent() {
             });
 
             const newChat = result.chat as AssistantChat;
+            pendo.track("assistant_chat_started", {
+                context_type: contextType,
+                portfolio_id: selectedPortfolioId
+            });
             setChats((prev) => [newChat, ...prev]);
             setSelectedChat(newChat);
             setMessages([result.initialMessage]);
@@ -233,6 +237,11 @@ function AssistantChatPageContent() {
         if (!selectedChat || !input.trim() || sending) return;
 
         const messageText = input.trim();
+        pendo.track("assistant_message_sent", {
+            chat_id: selectedChat.id,
+            context_type: selectedChat.context_type,
+            message_length: messageText.length
+        });
         setInput('');
         setSending(true);
         setError(null);
@@ -287,6 +296,10 @@ function AssistantChatPageContent() {
                 body: JSON.stringify({ proposalMessageId })
             });
 
+            pendo.track("assistant_proposal_approved", {
+                chat_id: selectedChat.id,
+                proposal_message_id: proposalMessageId
+            });
             setMessages((prev) => {
                 const resolved = prev.map((message) => {
                     if (message.id !== proposalMessageId) return message;
@@ -335,6 +348,11 @@ function AssistantChatPageContent() {
 
         try {
             const data = await uploadPortfolioDocument(selectedChat.portfolio_id, file);
+            pendo.track("assistant_document_uploaded", {
+                file_name: file.name,
+                file_size_bytes: file.size,
+                portfolio_id: selectedChat.portfolio_id
+            });
             const documentCount = Array.isArray(data.documents) ? data.documents.length : null;
             const statusMessage = documentCount
                 ? `Uploaded ${file.name}. ${documentCount} supporting document${documentCount === 1 ? '' : 's'} now available for portfolio edits.`

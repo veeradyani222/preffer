@@ -179,6 +179,12 @@ export default function CapabilityDetailPage() {
             method: 'PATCH',
             body: JSON.stringify({ status }),
         });
+        pendo.track("ai_record_status_updated", {
+            portfolio_id: selectedPortfolioId,
+            capability: capability,
+            record_id: recordId,
+            new_status: status
+        });
         setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, status } : r)));
     };
 

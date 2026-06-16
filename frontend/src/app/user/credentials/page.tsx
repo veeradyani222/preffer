@@ -48,6 +48,7 @@ export default function CredentialsPage() {
                 method: 'POST',
             });
             if (data.apiKey) {
+                pendo.track("api_key_regenerated");
                 setApiKey(data.apiKey);
                 setShowConfirmRegenerate(false);
             }

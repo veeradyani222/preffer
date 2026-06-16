@@ -15,6 +15,9 @@ export default function CallbackInner({ token }: CallbackInnerProps) {
     useEffect(() => {
         if (token) {
             setToken(token);
+            pendo.track("user_signed_up", {
+                auth_method: "google_oauth"
+            });
             router.push('/user/dashboard');
         } else {
             router.push('/?error=no_token');

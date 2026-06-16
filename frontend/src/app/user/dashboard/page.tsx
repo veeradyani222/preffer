@@ -111,6 +111,9 @@ export default function DashboardPage() {
 
         try {
             await apiFetch(`/portfolio/${id}`, { method: 'DELETE' });
+            pendo.track("portfolio_deleted", {
+                portfolio_id: id
+            });
             setPortfolios(portfolios.filter(p => p.id !== id));
             setUnfinished(prev => ({
                 ...prev,
