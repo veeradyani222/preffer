@@ -1704,12 +1704,22 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
         if (!userInput.trim() || !currentSection) return;
 
         const message = userInput.trim();
+        const promptMessageId = crypto.randomUUID();
         setUserInput('');
 
         const userMsg: ChatMessage = { role: 'user', content: message, timestamp: new Date() };
         setChatMessages(prev => [...prev, userMsg]);
         setConversationHistory(prev => [...prev, userMsg]);
         setIsGenerating(true);
+
+        if (typeof window !== 'undefined' && window.pendo) {
+            window.pendo.trackAgent("prompt", {
+                agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                conversationId: portfolio.id,
+                messageId: promptMessageId,
+                content: message,
+            });
+        }
 
         const token = localStorage.getItem('token');
         try {
@@ -1735,6 +1745,15 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 const aiMsg: ChatMessage = { role: 'ai', content: data.message, timestamp: new Date() };
                 setChatMessages(prev => [...prev, aiMsg]);
                 setConversationHistory(prev => [...prev, aiMsg]);
+
+                if (typeof window !== 'undefined' && window.pendo) {
+                    window.pendo.trackAgent("agent_response", {
+                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        conversationId: portfolio.id,
+                        messageId: `agent_response_${Date.now()}`,
+                        content: data.message,
+                    });
+                }
 
                 // If AI proposed content, show it for approval
                 if (data.proposedContent) {
@@ -1803,11 +1822,21 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 setDisplayContent(data.displayContent || formatContentForDisplay(data.proposedContent));
                 setIsContentSaved(false); // New content needs approval
 
+                const responseContent = data.message || "Done! Review the content below and click **Approve & Save** if you're happy with it!";
                 setChatMessages(prev => [...prev, {
                     role: 'ai',
-                    content: data.message || "Done! Review the content below and click **Approve & Save** if you're happy with it!",
+                    content: responseContent,
                     timestamp: new Date()
                 }]);
+
+                if (typeof window !== 'undefined' && window.pendo) {
+                    window.pendo.trackAgent("agent_response", {
+                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        conversationId: portfolio.id,
+                        messageId: `agent_response_${Date.now()}`,
+                        content: responseContent,
+                    });
+                }
             } else {
                 const error = await response.json();
                 setChatMessages(prev => [...prev, {
@@ -1854,6 +1883,15 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 setSavedSections(prev => ({ ...prev, [currentSection.id]: true }));
                 setIsContentSaved(true); // Mark content as saved
 
+                if (typeof window !== 'undefined' && window.pendo) {
+                    window.pendo.trackAgent("user_reaction", {
+                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        conversationId: portfolio.id,
+                        messageId: currentSection.id,
+                        content: "positive",
+                    });
+                }
+
                 setChatMessages(prev => [...prev, {
                     role: 'ai',
                     content: "✅ **Saved!** Moving to next section...",
@@ -1891,6 +1929,15 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
         setIsGenerating(true);
         const token = localStorage.getItem('token');
 
+        if (typeof window !== 'undefined' && window.pendo) {
+            window.pendo.trackAgent("prompt", {
+                agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                conversationId: portfolio.id,
+                messageId: crypto.randomUUID(),
+                content: feedback,
+            });
+        }
+
         try {
             const response = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/wizard/${portfolio.id}/improve`,
@@ -1913,11 +1960,21 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 setDisplayContent(data.displayContent || formatContentForDisplay(data.proposedContent));
                 setIsContentSaved(false); // Improved content needs approval
 
+                const responseContent = data.message || "I've made the changes! Check the updated content below.";
                 setChatMessages(prev => [...prev, {
                     role: 'ai',
-                    content: data.message || "I've made the changes! Check the updated content below.",
+                    content: responseContent,
                     timestamp: new Date()
                 }]);
+
+                if (typeof window !== 'undefined' && window.pendo) {
+                    window.pendo.trackAgent("agent_response", {
+                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        conversationId: portfolio.id,
+                        messageId: `agent_response_${Date.now()}`,
+                        content: responseContent,
+                    });
+                }
             }
         } catch (error) {
         } finally {
@@ -2192,7 +2249,17 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                             {isContentSaved && (
                                 <div className="flex items-center gap-2">
                                     <button
-                                        onClick={handleAutoGenerate}
+                                        onClick={() => {
+                                            if (typeof window !== 'undefined' && window.pendo) {
+                                                window.pendo.trackAgent("user_reaction", {
+                                                    agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                                                    conversationId: portfolio.id,
+                                                    messageId: currentSection?.id || `reaction_${Date.now()}`,
+                                                    content: "retry",
+                                                });
+                                            }
+                                            handleAutoGenerate();
+                                        }}
                                         disabled={isGenerating}
                                         className="flex items-center gap-1 px-3 py-1.5 text-stone-500 text-xs font-medium rounded-full hover:bg-stone-100 transition-colors disabled:opacity-50"
                                     >

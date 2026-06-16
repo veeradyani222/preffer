@@ -233,6 +233,7 @@ function AssistantChatPageContent() {
         if (!selectedChat || !input.trim() || sending) return;
 
         const messageText = input.trim();
+        const promptMessageId = crypto.randomUUID();
         setInput('');
         setSending(true);
         setError(null);
@@ -245,6 +246,15 @@ function AssistantChatPageContent() {
         };
         setMessages((prev) => [...prev, optimistic]);
 
+        if (typeof window !== 'undefined' && window.pendo) {
+            window.pendo.trackAgent("prompt", {
+                agentId: "jfxc2jDoYP4vWLLDdeDa7ST_Sl4",
+                conversationId: selectedChat.id,
+                messageId: promptMessageId,
+                content: messageText,
+            });
+        }
+
         try {
             const data = await apiFetch(`/assistant/chats/${selectedChat.id}/messages`, {
                 method: 'POST',
@@ -256,6 +266,15 @@ function AssistantChatPageContent() {
                 data.userMessage,
                 data.assistantMessage
             ]);
+
+            if (typeof window !== 'undefined' && window.pendo) {
+                window.pendo.trackAgent("agent_response", {
+                    agentId: "jfxc2jDoYP4vWLLDdeDa7ST_Sl4",
+                    conversationId: selectedChat.id,
+                    messageId: data.assistantMessage?.id || `agent_response_${Date.now()}`,
+                    content: data.assistantMessage?.content || "",
+                });
+            }
 
             setChats((prev) => prev.map((chat) => chat.id === selectedChat.id ? { ...chat, updated_at: new Date().toISOString() } : chat));
             if (data.chat) {

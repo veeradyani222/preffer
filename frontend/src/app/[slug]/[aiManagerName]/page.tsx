@@ -107,14 +107,26 @@ export default function AiManagerPage() {
         load();
     }, [slug, aiManagerName]);
 
-    const handleSend = async (messageText: string) => {
+    const handleSend = async (messageText: string, isSuggestedPrompt = false) => {
         if (!messageText.trim() || sending || !meta) return;
 
         const userMessage = messageText.trim();
+        const promptMessageId = crypto.randomUUID();
+        const currentConversationId = sessionId || `session_${Date.now()}`;
         const updatedMessages = [...messages, { role: 'user' as const, content: userMessage }];
         setMessages(updatedMessages);
         setInput('');
         setSending(true);
+
+        if (typeof window !== 'undefined' && window.pendo) {
+            window.pendo.trackAgent("prompt", {
+                agentId: "M9xonBot8uloa_sBCLBI6Bha-6o",
+                conversationId: currentConversationId,
+                messageId: promptMessageId,
+                content: userMessage,
+                suggestedPrompt: isSuggestedPrompt,
+            });
+        }
 
         try {
             const response = await fetch(
@@ -149,7 +161,17 @@ export default function AiManagerPage() {
                 setSessionId(nextSessionId);
                 sessionStorage.setItem(`ai_session:${slug}:${aiManagerName}`, nextSessionId);
             }
-            setMessages([...updatedMessages, { role: 'assistant', content: data.reply || 'I can help with that.' }]);
+            const replyContent = data.reply || 'I can help with that.';
+            setMessages([...updatedMessages, { role: 'assistant', content: replyContent }]);
+
+            if (typeof window !== 'undefined' && window.pendo) {
+                window.pendo.trackAgent("agent_response", {
+                    agentId: "M9xonBot8uloa_sBCLBI6Bha-6o",
+                    conversationId: nextSessionId || currentConversationId,
+                    messageId: `agent_response_${Date.now()}`,
+                    content: replyContent,
+                });
+            }
         } catch {
             setMessages([
                 ...updatedMessages,
@@ -276,7 +298,7 @@ export default function AiManagerPage() {
                                 {suggestedQuestions.map((question, idx) => (
                                     <button
                                         key={idx}
-                                        onClick={() => handleSend(question)}
+                                        onClick={() => handleSend(question, true)}
                                         className="px-4 py-2 md:px-5 md:py-3 rounded-xl text-xs md:text-sm transition-all hover:-translate-y-0.5"
                                         style={{
                                             backgroundColor: `${currentTheme.colors.medium}15`,
