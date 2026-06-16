@@ -1,7 +1,7 @@
 # preffer.me
 Making everyone prefer you.
 
-Preffer is a hackathon project (2fast2mcp) that gives anyone a professional page plus an AI representative that talks to visitors, answers questions, captures intent, and turns conversations into business outcomes. Instead of building only for founders or SaaS builders, preffer is built for everyone who wants to be more productive and grow their business with AI.
+Preffer is a project fueled by my passion. I wanted to make it since a long time and hence secured the domain long ago!! It gives anyone a professional page plus an AI representative that talks to visitors, answers questions, captures intent, and turns conversations into business outcomes. Instead of building only for founders or SaaS builders, preffer is built for everyone who wants to be more productive and grow their business with AI.
 
 Live: https://preffer.me
 
@@ -30,26 +30,7 @@ Most AI tools today are optimized for developers and founders. preffer is for an
 - AI: Google Gemini with model fallback and optional Archestra LLM proxy.
 - Archestra: agent creation/sync, A2A chat routing, MCP tooling, and optional outgoing emails.
 
-## Archestra Integration 
-preffer uses Archestra in three distinct ways:
-
-1. LLM Proxy 
-   - In development, Gemini calls are routed through Archestra’s LLM proxy for monitoring, safety, and cost tracking.
-   - Configured via `ARCHESTRA_LLM_PROXY_URL` and `ARCHESTRA_PROFILE_ID`.
-   - In production, calls go directly to Gemini.
-
-2. Agent Management + A2A Chat
-   - Each portfolio’s AI manager maps to an Archestra agent.
-   - On publish, agents are created or synced.
-   - Visitor chat is routed through Archestra A2A when an agent is linked, with a fallback to direct Gemini if not.
-
-3. MCP Server 
-   - The backend exposes `/mcp` using MCP’s streamable HTTP transport.
-   - MCP endpoint: `https://app.preffer.me/mcp` (hosted) or `http://localhost:5000/mcp` (local).
-   - Auth is `Bearer <user_api_key>`. The API key is available in the Credentials page (`/user/credentials`).
-   - This lets Archestra or any MCP client manage portfolios and AI capabilities as tools.
-
-MCP Tools (Exposed)
+ ## MCP Tools (Exposed)
 - `get_portfolios` — list all portfolios for the authenticated user.
 - `get_portfolio` — get full details for a portfolio by ID.
 - `get_portfolio_by_slug` — get a published portfolio by slug.
