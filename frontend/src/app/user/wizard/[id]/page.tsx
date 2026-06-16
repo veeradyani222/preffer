@@ -2423,16 +2423,8 @@ function StepFeatures({ wizardData, onNext, onBack }: {
         <div>
             <div className="mb-8">
                 <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Step 5</span>
-                <div className="mt-1 mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-1 mb-2">
                     <h2 className="text-2xl sm:text-3xl font-bold text-stone-900">Add your AI Representative</h2>
-                    <a
-                        href="https://archestra.ai/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center text-center rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-widest text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors"
-                    >
-                        Powered by Archestra AI
-                    </a>
                 </div>
                 <p className="text-stone-600">Set up an AI representative that answers visitors on your behalf like a real representative.</p>
             </div>
