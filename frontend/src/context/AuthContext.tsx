@@ -12,6 +12,7 @@ export interface User {
     displayName?: string;
     profilePicture?: string;
     apiKey?: string;
+    createdAt?: string;
 }
 
 export interface AuthContextType {
@@ -37,6 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
+        pendo.initialize({
+            visitor: { id: '' }
+        });
         checkUser();
     }, []);
 
@@ -51,6 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userData = await apiFetch('/auth/me');
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
+            pendo.identify({
+                visitor: {
+                    id: userData.id,
+                    email: userData.email,
+                    full_name: userData.displayName,
+                    username: userData.username,
+                    createdAt: userData.createdAt
+                }
+            });
         } catch (error: any) {
 
             // Only clear auth for true auth failures.
@@ -81,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = () => {
+        pendo.clearSession();
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
