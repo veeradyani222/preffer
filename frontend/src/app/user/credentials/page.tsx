@@ -49,6 +49,7 @@ export default function CredentialsPage() {
             });
             if (data.apiKey) {
                 setApiKey(data.apiKey);
+                pendo.track('api_key_regenerated');
                 setShowConfirmRegenerate(false);
             }
         } catch (err) {
