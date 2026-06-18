@@ -120,7 +120,7 @@ export default function AiManagerPage() {
 
         if (typeof window !== 'undefined' && window.pendo) {
             window.pendo.trackAgent("prompt", {
-                agentId: "M9xonBot8uloa_sBCLBI6Bha-6o",
+                agentId: "QbDE-RXNXYsMD2E4dgJ9nYr84SM",
                 conversationId: currentConversationId,
                 messageId: promptMessageId,
                 content: userMessage,
@@ -166,7 +166,7 @@ export default function AiManagerPage() {
 
             if (typeof window !== 'undefined' && window.pendo) {
                 window.pendo.trackAgent("agent_response", {
-                    agentId: "M9xonBot8uloa_sBCLBI6Bha-6o",
+                    agentId: "QbDE-RXNXYsMD2E4dgJ9nYr84SM",
                     conversationId: nextSessionId || currentConversationId,
                     messageId: `agent_response_${Date.now()}`,
                     content: replyContent,

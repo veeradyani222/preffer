@@ -1714,7 +1714,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
         if (typeof window !== 'undefined' && window.pendo) {
             window.pendo.trackAgent("prompt", {
-                agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                 conversationId: portfolio.id,
                 messageId: promptMessageId,
                 content: message,
@@ -1748,7 +1748,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
                 if (typeof window !== 'undefined' && window.pendo) {
                     window.pendo.trackAgent("agent_response", {
-                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                         conversationId: portfolio.id,
                         messageId: `agent_response_${Date.now()}`,
                         content: data.message,
@@ -1802,6 +1802,16 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
         }]);
         setIsGenerating(true);
 
+        if (typeof window !== 'undefined' && window.pendo) {
+            window.pendo.trackAgent("prompt", {
+                agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
+                conversationId: portfolio.id,
+                messageId: crypto.randomUUID(),
+                content: "Auto-generate content for " + (currentSection.type || "section"),
+                suggestedPrompt: true,
+            });
+        }
+
         const token = localStorage.getItem('token');
         try {
             const response = await fetch(
@@ -1831,7 +1841,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
                 if (typeof window !== 'undefined' && window.pendo) {
                     window.pendo.trackAgent("agent_response", {
-                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                         conversationId: portfolio.id,
                         messageId: `agent_response_${Date.now()}`,
                         content: responseContent,
@@ -1885,7 +1895,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
                 if (typeof window !== 'undefined' && window.pendo) {
                     window.pendo.trackAgent("user_reaction", {
-                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                         conversationId: portfolio.id,
                         messageId: currentSection.id,
                         content: "positive",
@@ -1931,7 +1941,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
         if (typeof window !== 'undefined' && window.pendo) {
             window.pendo.trackAgent("prompt", {
-                agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                 conversationId: portfolio.id,
                 messageId: crypto.randomUUID(),
                 content: feedback,
@@ -1969,7 +1979,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
                 if (typeof window !== 'undefined' && window.pendo) {
                     window.pendo.trackAgent("agent_response", {
-                        agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                        agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                         conversationId: portfolio.id,
                         messageId: `agent_response_${Date.now()}`,
                         content: responseContent,
@@ -2252,7 +2262,7 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                                         onClick={() => {
                                             if (typeof window !== 'undefined' && window.pendo) {
                                                 window.pendo.trackAgent("user_reaction", {
-                                                    agentId: "_IKmzv6aBEVUgVrfX60-eo9PMtQ",
+                                                    agentId: "33bYxCqgh2w1dOF3Q2IbXLOqeMg",
                                                     conversationId: portfolio.id,
                                                     messageId: currentSection?.id || `reaction_${Date.now()}`,
                                                     content: "retry",

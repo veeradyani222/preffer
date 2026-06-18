@@ -248,7 +248,7 @@ function AssistantChatPageContent() {
 
         if (typeof window !== 'undefined' && window.pendo) {
             window.pendo.trackAgent("prompt", {
-                agentId: "jfxc2jDoYP4vWLLDdeDa7ST_Sl4",
+                agentId: "96LsokD8aFRba-EsxU5RlSNX9l4",
                 conversationId: selectedChat.id,
                 messageId: promptMessageId,
                 content: messageText,
@@ -269,7 +269,7 @@ function AssistantChatPageContent() {
 
             if (typeof window !== 'undefined' && window.pendo) {
                 window.pendo.trackAgent("agent_response", {
-                    agentId: "jfxc2jDoYP4vWLLDdeDa7ST_Sl4",
+                    agentId: "96LsokD8aFRba-EsxU5RlSNX9l4",
                     conversationId: selectedChat.id,
                     messageId: data.assistantMessage?.id || `agent_response_${Date.now()}`,
                     content: data.assistantMessage?.content || "",
@@ -305,6 +305,15 @@ function AssistantChatPageContent() {
                 method: 'POST',
                 body: JSON.stringify({ proposalMessageId })
             });
+
+            if (typeof window !== 'undefined' && window.pendo) {
+                window.pendo.trackAgent("user_reaction", {
+                    agentId: "96LsokD8aFRba-EsxU5RlSNX9l4",
+                    conversationId: selectedChat.id,
+                    messageId: proposalMessageId,
+                    content: "positive",
+                });
+            }
 
             setMessages((prev) => {
                 const resolved = prev.map((message) => {
