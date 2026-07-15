@@ -16,7 +16,6 @@ const portfolio_chat_service_1 = __importDefault(require("../services/portfolio-
 const logger_1 = __importDefault(require("../utils/logger"));
 const ai_capability_service_1 = __importDefault(require("../services/ai-capability.service"));
 const ai_capabilities_1 = require("../constants/ai-capabilities");
-const archestra_agent_service_1 = __importDefault(require("../services/archestra-agent.service"));
 const interfaze_service_1 = __importDefault(require("../services/interfaze.service"));
 const document_context_service_1 = require("../services/document-context.service");
 // In-memory store for pending content (in production, use Redis)
@@ -293,9 +292,6 @@ class WizardController {
                     settings_json: (value === null || value === void 0 ? void 0 : value.settings) || (value === null || value === void 0 ? void 0 : value.settings_json) || {},
                 }));
                 await ai_capability_service_1.default.upsertCapabilities(portfolioId, capabilityPayload);
-            }
-            if (portfolio.status === 'published' && portfolio.archestra_agent_id && archestra_agent_service_1.default.isA2AEnabled()) {
-                archestra_agent_service_1.default.updateAgent(portfolio.archestra_agent_id, portfolio).catch(() => { });
             }
             logger_1.default.db('UPDATE', 'portfolios', { id: portfolioId, submittedStep, nextStep });
             res.json({

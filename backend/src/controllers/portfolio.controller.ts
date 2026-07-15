@@ -4,7 +4,6 @@ import { AuthRequest } from '../middleware/authenticate';
 import PortfolioService from '../services/portfolio.service.new';
 import PortfolioChatService from '../services/portfolio-chat.service';
 import { generateWithFallback } from '../services/gemini.service';
-import ArchestraAgentService from '../services/archestra-agent.service';
 import AnalyticsService from '../services/analytics.service';
 import AICapabilityService from '../services/ai-capability.service';
 import { AICapabilityKey, AI_CAPABILITY_KEYS, isAICapabilityKey } from '../constants/ai-capabilities';
@@ -72,7 +71,7 @@ class PortfolioController {
     }
 
     /**
-     * Direct Gemini chat fallback (when A2A agent is not available)
+     * Direct Gemini chat for visitor AI manager conversations
      */
     private static async directGeminiChat(
         portfolio: any,
@@ -635,36 +634,12 @@ Return ONLY valid JSON in this exact shape:
                 // Non-blocking: chat continues even if analytics context fails.
             }
 
-            // ── Route through Archestra A2A if agent is linked ──
-            const agentId = (portfolio as any).archestra_agent_id;
-            if (agentId && ArchestraAgentService.isA2AEnabled() && ArchestraAgentService.isAgentA2ACompatible(agentId)) {
-                try {
-                    const a2aResponse = await ArchestraAgentService.sendA2AMessage(
-                        agentId,
-                        message.trim(),
-                        safeHistory,
-                        portfolio.ai_manager_name || 'AI Manager',
-                        analyticsContext
-                    );
-                    finalReply = a2aResponse.text;
-                } catch (a2aErr: any) {
-                    console.error('A2A chat failed, falling back to direct Gemini:', a2aErr.message);
-                    finalReply = await PortfolioController.directGeminiChat(
-                        portfolio,
-                        message,
-                        safeHistory,
-                        analyticsContext
-                    );
-                }
-            } else {
-                // ── Fallback: direct Gemini call (no Archestra agent linked) ──
-                finalReply = await PortfolioController.directGeminiChat(
-                    portfolio,
-                    message,
-                    safeHistory,
-                    analyticsContext
-                );
-            }
+            finalReply = await PortfolioController.directGeminiChat(
+                portfolio,
+                message,
+                safeHistory,
+                analyticsContext
+            );
 
             // Track conversations for analytics (fire-and-forget)
             const visitorIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
@@ -743,11 +718,6 @@ Return ONLY valid JSON in this exact shape:
                  WHERE id = $2`,
                 [JSON.stringify(capabilityMap), portfolioId]
             );
-
-            const portfolio = await PortfolioService.getById(portfolioId, userId);
-            if (portfolio?.status === 'published' && portfolio.archestra_agent_id && ArchestraAgentService.isA2AEnabled()) {
-                ArchestraAgentService.updateAgent(portfolio.archestra_agent_id, portfolio).catch(() => { });
-            }
 
             return res.json({ portfolioId, capabilities });
         } catch (error) {

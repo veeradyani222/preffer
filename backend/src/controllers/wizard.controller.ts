@@ -13,7 +13,6 @@ import PortfolioChatService, { ChatMessage } from '../services/portfolio-chat.se
 import logger from '../utils/logger';
 import AICapabilityService from '../services/ai-capability.service';
 import { isAICapabilityKey } from '../constants/ai-capabilities';
-import ArchestraAgentService from '../services/archestra-agent.service';
 import InterfazeService from '../services/interfaze.service';
 import {
     buildGeneralDocumentContext,
@@ -340,10 +339,6 @@ export class WizardController {
                     }));
 
                 await AICapabilityService.upsertCapabilities(portfolioId, capabilityPayload as any);
-            }
-
-            if (portfolio.status === 'published' && portfolio.archestra_agent_id && ArchestraAgentService.isA2AEnabled()) {
-                ArchestraAgentService.updateAgent(portfolio.archestra_agent_id, portfolio).catch(() => { });
             }
 
             logger.db('UPDATE', 'portfolios', { id: portfolioId, submittedStep, nextStep });

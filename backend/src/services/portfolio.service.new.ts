@@ -5,7 +5,6 @@
 
 import pool from '../config/database';
 import { CreditsService, CREDIT_COSTS, PLAN_LIMITS } from './credits.service';
-import ArchestraAgentService from './archestra-agent.service';
 import { AICapabilityKey } from '../constants/ai-capabilities';
 import type { WizardDocumentSource } from './document-context.service';
 
@@ -378,22 +377,7 @@ export class PortfolioService {
                 throw new Error('Insufficient credits');
             }
 
-            const published = this.formatPortfolio(updateResult.rows[0]);
-
-            // ── Archestra Agent Integration ──
-            // Create/sync an Archestra agent when publishing with a finalized AI manager
-            if (effectiveHasAiManager && aiManagerFinalized && ArchestraAgentService.isA2AEnabled()) {
-                const agent = await ArchestraAgentService.createAgentOrFallback(published, published.id);
-                if (agent) {
-                    await pool.query(
-                        'UPDATE portfolios SET archestra_agent_id = $1 WHERE id = $2',
-                        [agent.id, published.id]
-                    );
-                    published.archestra_agent_id = agent.id;
-                }
-            }
-
-            return published;
+            return this.formatPortfolio(updateResult.rows[0]);
 
         } catch (error) {
             await client.query('ROLLBACK');
@@ -435,15 +419,6 @@ export class PortfolioService {
      * Delete a portfolio (only drafts, or reclaim credits for published)
      */
     static async delete(portfolioId: string, userId: string): Promise<void> {
-        // Clean up Archestra agent if linked
-        const existing = await pool.query(
-            'SELECT archestra_agent_id FROM portfolios WHERE id = $1 AND user_id = $2',
-            [portfolioId, userId]
-        );
-        if (existing.rows[0]?.archestra_agent_id && ArchestraAgentService.isA2AEnabled()) {
-            ArchestraAgentService.deleteAgent(existing.rows[0].archestra_agent_id).catch(() => {});
-        }
-
         const query = 'DELETE FROM portfolios WHERE id = $1 AND user_id = $2';
         await pool.query(query, [portfolioId, userId]);
     }

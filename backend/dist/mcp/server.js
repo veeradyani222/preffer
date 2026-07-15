@@ -3,7 +3,7 @@
  * MCP Server for Portfolio App
  *
  * Exposes portfolio management as granular MCP tools
- * for Archestra integration via Streamable HTTP transport.
+ * via Streamable HTTP transport.
  *
  * Auth: Bearer token = user's api_key from the users table.
  */
@@ -21,7 +21,6 @@ const credits_service_1 = require("../services/credits.service");
 const analytics_service_1 = __importDefault(require("../services/analytics.service"));
 const apiKey_service_1 = __importDefault(require("../services/apiKey.service"));
 const ai_capability_service_1 = __importDefault(require("../services/ai-capability.service"));
-const archestra_agent_service_1 = __importDefault(require("../services/archestra-agent.service"));
 const ai_capabilities_1 = require("../constants/ai-capabilities");
 const database_1 = __importDefault(require("../config/database"));
 // Public-facing base URL for portfolio links (from env, no trailing slash)
@@ -882,10 +881,6 @@ IMPORTANT: Do NOT show portfolio IDs to the user. After updating, proceed to the
                              updated_at = NOW()
                          WHERE id = $2`, [JSON.stringify(capabilityMap), portfolio_id]);
             }
-            const refreshed = await portfolio_service_new_1.default.getById(portfolio_id, userId);
-            if ((refreshed === null || refreshed === void 0 ? void 0 : refreshed.status) === 'published' && refreshed.archestra_agent_id && archestra_agent_service_1.default.isA2AEnabled()) {
-                archestra_agent_service_1.default.updateAgent(refreshed.archestra_agent_id, refreshed).catch(() => { });
-            }
             return textResult(`AI manager settings updated successfully!`);
         }
         catch (error) {
@@ -975,11 +970,6 @@ This tool applies partial updates safely: capabilities not included remain uncha
                      SET wizard_data = jsonb_set(COALESCE(wizard_data, '{}'::jsonb), '{aiCapabilities}', $1::jsonb, true),
                          updated_at = NOW()
                      WHERE id = $2`, [JSON.stringify(capabilityMap), portfolio_id]);
-            // Keep linked Archestra agent in sync when portfolio is already published.
-            const refreshed = await portfolio_service_new_1.default.getById(portfolio_id, userId);
-            if ((refreshed === null || refreshed === void 0 ? void 0 : refreshed.status) === 'published' && refreshed.archestra_agent_id && archestra_agent_service_1.default.isA2AEnabled()) {
-                archestra_agent_service_1.default.updateAgent(refreshed.archestra_agent_id, refreshed).catch(() => { });
-            }
             const enabledLabels = saved
                 .filter((item) => item.enabled)
                 .map((item) => ai_capabilities_1.AI_CAPABILITY_LABELS[item.capability_key]);

@@ -23,13 +23,13 @@ git push origin main
   - Feedback and reviews
 - Owner workspace: chat to update portfolio content or AI manager behavior
 - Analytics for views, sessions, messages, and AI insights
-- MCP server for Archestra and other MCP clients to manage portfolios
+- MCP server for MCP clients to manage portfolios
 
 ## How It Works 
 - Frontend: Next.js app for landing, dashboard, wizard, analytics, and public pages.
 - Backend: Express API + PostgreSQL for auth, portfolios, AI chat, analytics.
 - AI: Google Gemini with model fallback (direct API).
-- Archestra: agent creation/sync, A2A chat routing, MCP tooling, and optional outgoing emails.
+- MCP: portfolio management tools over Streamable HTTP.
 
  ## MCP Tools (Exposed)
 - `get_portfolios` — list all portfolios for the authenticated user.
@@ -60,11 +60,6 @@ git push origin main
 - `get_traffic_trends` — traffic trends over time.
 - `compare_portfolios` — compare portfolio performance metrics.
 
-Optional: Outgoing Email
-- A follow-up email can be sent via Archestra’s outgoing email endpoint after a lead is captured.
-- Implemented in `backend/src/services/archestra-outgoing-email.service.ts`.
-- Currently wired for local dev (`http://localhost:9000`) and can be toggled with `ARCHESTRA_ENABLE_OUTGOING_EMAIL=false`.
-
 ## Core User Flow
 1. Sign in with Google.
 2. Start the 7-step wizard to create a portfolio.
@@ -85,7 +80,7 @@ Optional: Outgoing Email
   - `src/components/` sections and themes
 - `backend/` Express API
   - `src/controllers/` API controllers
-  - `src/services/` AI, portfolio, analytics, Archestra integrations
+  - `src/services/` AI, portfolio, analytics
   - `src/mcp/` MCP server + transport
   - `migrations/` and `schema.sql` for PostgreSQL
 
@@ -113,13 +108,6 @@ Backend:
 - `GOOGLE_CLIENT_SECRET`
 - `JWT_SECRET`
 - `GEMINI_API_KEY`
-- `ARCHESTRA_BASE_URL`
-- `ARCHESTRA_API_KEY`
-- `ARCHESTRA_A2A_TOKEN`
-- `ARCHESTRA_TEAM_ID`
-- `ARCHESTRA_ORG_ID`
-- `ARCHESTRA_LLM_API_KEY_ID`
-- `ARCHESTRA_ENABLE_OUTGOING_EMAIL`
 
 Frontend:
 - `NEXT_PUBLIC_API_URL`
@@ -133,4 +121,4 @@ Frontend:
 - MCP: `/mcp` (stateless, Bearer API key)
 
 ## Notes
-- Outgoing email via Archestra is implemented but set for local-only by default. Adjust the base URL in `backend/src/services/archestra-outgoing-email.service.ts` if you want a hosted Archestra instance.
+- AI chat uses Google Gemini directly with automatic model fallback on rate limits.
