@@ -7,6 +7,7 @@ Live: https://preffer.me
 
 ## Why This Exists
 Most AI tools today are optimized for developers and founders. preffer is for anyone: creators, freelancers, local businesses, students, and non-technical builders who still deserve leverage. The idea is simple: let people build a clean public page, then put a smart AI representative on it that handles the repetitive conversations and captures value automatically.
+git push origin main
 
 ## What It Does
 - Portfolio creation wizard with conversational AI and approval flow
