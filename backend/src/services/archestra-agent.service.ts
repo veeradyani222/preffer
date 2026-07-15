@@ -75,7 +75,7 @@ function getA2AHeaders(): Record<string, string> {
 
 function getBaseUrl(): string {
     const url = archestraConfig.baseUrl;
-    if (!url) throw new Error('Archestra base URL not configured (set ARCHESTRA_LLM_PROXY_URL)');
+    if (!url) throw new Error('Archestra base URL not configured (set ARCHESTRA_BASE_URL)');
     return url;
 }
 

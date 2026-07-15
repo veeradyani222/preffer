@@ -2,50 +2,35 @@
 /**
  * Archestra Platform Configuration
  *
- * LLM Proxy: In development, all Gemini calls are routed through Archestra's
- * LLM proxy for security, monitoring, and cost tracking.
- * In production, direct Gemini API calls are used (existing behavior).
- *
- * Set ARCHESTRA_LLM_PROXY_URL in .env to enable.
- * Example: ARCHESTRA_LLM_PROXY_URL=http://localhost:9000/v1/gemini/8f7597d8-a7b6-4704-adc5-07df4e470d8c
+ * Used for agent Management API / A2A chat / outgoing email.
+ * LLM calls always go directly to Google Gemini (no proxy).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isArchestraEnabled = isArchestraEnabled;
-function loadConfig() {
-    var _a;
-    const isDev = process.env.NODE_ENV !== 'production';
-    const llmProxyUrl = ((_a = process.env.ARCHESTRA_LLM_PROXY_URL) === null || _a === void 0 ? void 0 : _a.replace(/\/+$/, '')) || null;
-    const profileId = process.env.ARCHESTRA_PROFILE_ID || null;
-    const apiKey = process.env.ARCHESTRA_API_KEY || null;
-    const a2aToken = process.env.ARCHESTRA_A2A_TOKEN || null;
-    const teamId = process.env.ARCHESTRA_TEAM_ID || null;
-    const llmApiKeyId = process.env.ARCHESTRA_LLM_API_KEY_ID || null;
-    // Derive base URL from proxy URL (e.g. http://localhost:9000)
-    let baseUrl = null;
-    if (llmProxyUrl) {
-        try {
-            const parsed = new URL(llmProxyUrl);
-            baseUrl = `${parsed.protocol}//${parsed.host}`;
-        }
-        catch ( /* ignore invalid URL */_b) { /* ignore invalid URL */ }
+function resolveBaseUrl() {
+    var _a, _b;
+    const explicit = ((_a = process.env.ARCHESTRA_BASE_URL) === null || _a === void 0 ? void 0 : _a.replace(/\/+$/, '')) || null;
+    if (explicit)
+        return explicit;
+    // Legacy: derive host from former LLM proxy URL so existing .env still works for A2A
+    const legacyProxyUrl = ((_b = process.env.ARCHESTRA_LLM_PROXY_URL) === null || _b === void 0 ? void 0 : _b.replace(/\/+$/, '')) || null;
+    if (!legacyProxyUrl)
+        return null;
+    try {
+        const parsed = new URL(legacyProxyUrl);
+        return `${parsed.protocol}//${parsed.host}`;
     }
-    const hasOpenAiProxyPath = !!llmProxyUrl && /\/chat\/completions$/i.test(llmProxyUrl);
-    const hasGeminiProxyPath = !!llmProxyUrl && llmProxyUrl.includes('/v1/gemini/');
-    const hasBaseUrlAndProfile = !!baseUrl && !!profileId;
-    const canUseLlmProxy = !!llmProxyUrl && (hasOpenAiProxyPath || hasGeminiProxyPath || hasBaseUrlAndProfile);
+    catch (_c) {
+        return null;
+    }
+}
+function loadConfig() {
     return {
-        llmProxyUrl,
-        profileId,
-        useLlmProxy: isDev && canUseLlmProxy,
-        baseUrl,
-        apiKey,
-        a2aToken,
-        teamId,
-        llmApiKeyId,
+        baseUrl: resolveBaseUrl(),
+        apiKey: process.env.ARCHESTRA_API_KEY || null,
+        a2aToken: process.env.ARCHESTRA_A2A_TOKEN || null,
+        teamId: process.env.ARCHESTRA_TEAM_ID || null,
+        llmApiKeyId: process.env.ARCHESTRA_LLM_API_KEY_ID || null,
     };
 }
 const archestraConfig = loadConfig();
-function isArchestraEnabled() {
-    return archestraConfig.useLlmProxy;
-}
 exports.default = archestraConfig;

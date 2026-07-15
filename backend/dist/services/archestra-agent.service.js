@@ -50,7 +50,7 @@ function getA2AHeaders() {
 function getBaseUrl() {
     const url = archestra_1.default.baseUrl;
     if (!url)
-        throw new Error('Archestra base URL not configured (set ARCHESTRA_LLM_PROXY_URL)');
+        throw new Error('Archestra base URL not configured (set ARCHESTRA_BASE_URL)');
     return url;
 }
 async function resolveLlmApiKeyId(baseUrl) {

@@ -1,12 +1,10 @@
 /**
  * Gemini Service - Reusable Gemini API wrapper with automatic model fallback
- * 
- * In development: routes all calls through Archestra LLM Proxy for monitoring & safety.
- * In production: uses direct Google Gemini API with model fallback on rate limits.
+ *
+ * Uses the direct Google Gemini API with model fallback on rate limits.
  */
 
 import { GoogleGenerativeAI, GenerationConfig } from '@google/generative-ai';
-import archestraConfig from '../config/archestra';
 import logger from '../utils/logger';
 
 // Initialize Gemini AI client
@@ -106,106 +104,6 @@ function isRateLimitError(error: any): boolean {
 }
 
 // ============================================
-// ARCHESTRA LLM PROXY (development only)
-// ============================================
-
-/**
- * Generate content via Archestra LLM Proxy.
- * Uses OpenAI-compatible chat/completions format that Archestra expects.
- */
-async function generateViaProxy(
-    config: GenerationConfig,
-    prompt: string
-): Promise<string> {
-    const configuredEndpoint = archestraConfig.llmProxyUrl!;
-    const normalizedEndpoint = configuredEndpoint.replace(/\/+$/, '');
-    const modelName = GEMINI_MODELS[currentModelIndex] || 'gemini-2.0-flash';
-    const isOpenAiStyleEndpoint = /\/chat\/completions$/i.test(normalizedEndpoint);
-
-    let endpoint = normalizedEndpoint;
-    let headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    let body: Record<string, any>;
-
-    if (isOpenAiStyleEndpoint) {
-        // OpenAI-compatible proxy endpoint
-        headers.Authorization = `Bearer ${archestraConfig.apiKey || process.env.GEMINI_API_KEY || ''}`;
-        body = {
-            model: modelName,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: config.temperature ?? 0.7,
-            max_tokens: config.maxOutputTokens ?? 2000,
-            ...(config.responseMimeType === 'application/json' && {
-                response_format: { type: 'json_object' }
-            })
-        };
-    } else {
-        // Gemini-native proxy endpoint:
-        // - either ARCHESTRA_LLM_PROXY_URL already includes /v1/gemini/{profile}
-        // - or derive full endpoint from baseUrl + profileId
-        if (normalizedEndpoint.includes('/v1/gemini/')) {
-            endpoint = `${normalizedEndpoint}/v1beta/models/${modelName}:generateContent`;
-        } else {
-            if (!archestraConfig.profileId) {
-                throw new Error(
-                    'Invalid Archestra Gemini proxy config. Provide ARCHESTRA_PROFILE_ID when ARCHESTRA_LLM_PROXY_URL is a base URL.'
-                );
-            }
-            endpoint = `${normalizedEndpoint}/v1/gemini/${archestraConfig.profileId}/v1beta/models/${modelName}:generateContent`;
-        }
-
-        headers['x-goog-api-key'] = process.env.GEMINI_API_KEY || '';
-        body = {
-            contents: [
-                {
-                    role: 'user',
-                    parts: [{ text: prompt }]
-                }
-            ],
-            generationConfig: {
-                temperature: config.temperature ?? 0.7,
-                maxOutputTokens: config.maxOutputTokens ?? 2000,
-                ...(config.responseMimeType && { responseMimeType: config.responseMimeType })
-            }
-        };
-    }
-
-    logger.ai('Routing through Archestra LLM Proxy', { endpoint });
-
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-        const errorBody = await response.text().catch(() => '');
-        const errMsg = `Archestra proxy error ${response.status}: ${errorBody}`;
-        logger.error(errMsg);
-        throw new Error(errMsg);
-    }
-
-    const data = await response.json();
-
-    // OpenAI-compatible + Gemini-native response formats
-    const geminiText = data?.candidates?.[0]?.content?.parts
-        ?.map((part: any) => part?.text || '')
-        .join('')
-        ?.trim();
-    const text = geminiText
-        || data?.choices?.[0]?.message?.content
-        || data?.choices?.[0]?.text
-        || data?.response
-        || '';
-
-    if (!text) {
-        throw new Error('Empty response from Archestra LLM Proxy');
-    }
-
-    logger.ai('Archestra proxy generation successful');
-    return text.trim();
-}
-
-// ============================================
 // MAIN EXPORT
 // ============================================
 
@@ -228,19 +126,6 @@ export async function generateWithFallback(
     prompt: string,
     maxRetries: number = 5
 ): Promise<string> {
-    // ── Dev mode: route through Archestra LLM Proxy ──
-    if (archestraConfig.useLlmProxy) {
-        try {
-            return await generateViaProxy(config, prompt);
-        } catch (proxyError: any) {
-            logger.ai('Archestra proxy failed, falling back to direct Gemini', {
-                error: proxyError.message
-            });
-            // Fall through to direct Gemini calls below
-        }
-    }
-
-    // ── Production / fallback: direct Gemini API with model cycling ──
     let lastError: any;
     let attempts = 0;
     

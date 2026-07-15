@@ -27,7 +27,7 @@ Most AI tools today are optimized for developers and founders. preffer is for an
 ## How It Works 
 - Frontend: Next.js app for landing, dashboard, wizard, analytics, and public pages.
 - Backend: Express API + PostgreSQL for auth, portfolios, AI chat, analytics.
-- AI: Google Gemini with model fallback and optional Archestra LLM proxy.
+- AI: Google Gemini with model fallback (direct API).
 - Archestra: agent creation/sync, A2A chat routing, MCP tooling, and optional outgoing emails.
 
  ## MCP Tools (Exposed)
@@ -75,7 +75,7 @@ Optional: Outgoing Email
 ## Tech Stack
 - Frontend: Next.js 16 (App Router), React 19, Tailwind
 - Backend: Node.js, Express, PostgreSQL, Passport (Google OAuth)
-- AI: Google Gemini with fallback and optional Archestra proxy
+- AI: Google Gemini with model fallback
 - MCP: `@modelcontextprotocol/sdk`
 
 ## Repo Structure
@@ -112,8 +112,7 @@ Backend:
 - `GOOGLE_CLIENT_SECRET`
 - `JWT_SECRET`
 - `GEMINI_API_KEY`
-- `ARCHESTRA_LLM_PROXY_URL`
-- `ARCHESTRA_PROFILE_ID`
+- `ARCHESTRA_BASE_URL`
 - `ARCHESTRA_API_KEY`
 - `ARCHESTRA_A2A_TOKEN`
 - `ARCHESTRA_TEAM_ID`
