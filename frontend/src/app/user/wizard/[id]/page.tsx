@@ -484,6 +484,11 @@ export default function WizardPage() {
                 };
                 setPortfolio(updatedPortfolio);
                 setTempWizardData({ portfolioType });
+                pendo.track('portfolio_created', {
+                    portfolioId: data.portfolioId,
+                    portfolioType,
+                    portfolioName: data.portfolio?.name || ''
+                });
                 router.replace(`/user/wizard/${data.portfolioId}`);
                 return updatedPortfolio;
             } else {
@@ -653,6 +658,13 @@ export default function WizardPage() {
                                                     method: 'POST',
                                                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                                                     body: JSON.stringify({ sections })
+                                                });
+                                                pendo.track('wizard_sections_selected', {
+                                                    portfolioId: portfolio.id,
+                                                    selectedSections: sections.join(','),
+                                                    sectionCount: sections.length,
+                                                    maxSections,
+                                                    usedAiRecommendations: Boolean(wizardData?.recommendedSections?.length)
                                                 });
                                                 setTempWizardData(prev => ({ ...prev, selectedSections: sections }));
 
@@ -921,6 +933,14 @@ function StepAboutAlways({ portfolio, wizardData, onNext, onBack, refreshPortfol
         try {
             const data = await uploadWizardDocument(portfolio.id, file);
             setDocuments(data.documents || []);
+            pendo.track('document_uploaded_wizard', {
+                portfolioId: portfolio.id,
+                fileName: file.name,
+                fileType: file.type || 'unknown',
+                fileSizeBytes: file.size,
+                wizardStep: 2,
+                totalDocumentCount: Array.isArray(data.documents) ? data.documents.length : 0
+            });
 
             if (data.document) {
                 applyDocumentText([data.document as WizardDocumentSource]);
@@ -975,6 +995,10 @@ function StepAboutAlways({ portfolio, wizardData, onNext, onBack, refreshPortfol
             }
 
             setDocuments(data.documents || []);
+            pendo.track('linkedin_profile_scraped', {
+                portfolioId: portfolio?.id || '',
+                linkedinUrl: trimmed
+            });
 
             if (data.document) {
                 applyDocumentText([data.document as WizardDocumentSource]);
@@ -996,6 +1020,14 @@ function StepAboutAlways({ portfolio, wizardData, onNext, onBack, refreshPortfol
         setIsContinuing(true);
         try {
             await Promise.resolve(onNext({ name, profession, description }));
+            pendo.track('wizard_about_completed', {
+                portfolioId: portfolio?.id || '',
+                portfolioType: wizardData?.portfolioType || '',
+                nameLength: name.length,
+                professionProvided: Boolean(profession.trim()),
+                descriptionLength: description.length,
+                documentCount: documents.length
+            });
         } finally {
             setIsContinuing(false);
         }
@@ -1323,6 +1355,14 @@ function StepSections({ portfolio, wizardData, maxSections, onNext, onBack, setM
         try {
             const data = await uploadWizardDocument(portfolio.id, file);
             setDocuments(data.documents || []);
+            pendo.track('document_uploaded_wizard', {
+                portfolioId: portfolio.id,
+                fileName: file.name,
+                fileType: file.type || 'unknown',
+                fileSizeBytes: file.size,
+                wizardStep: 3,
+                totalDocumentCount: Array.isArray(data.documents) ? data.documents.length : 0
+            });
             await refreshPortfolio();
             if (wizardData?.description) {
                 setHasRecommended(false);
@@ -1731,6 +1771,14 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
 
             if (response.ok) {
                 const data = await response.json();
+                pendo.track('wizard_chat_message_sent', {
+                    portfolioId: portfolio.id,
+                    sectionId: currentSection.id,
+                    sectionType: currentSection.type,
+                    messageLength: message.length,
+                    hasProposedContent: Boolean(data.proposedContent),
+                    aiAction: data.action || ''
+                });
 
                 const aiMsg: ChatMessage = { role: 'ai', content: data.message, timestamp: new Date() };
                 setChatMessages(prev => [...prev, aiMsg]);
@@ -1802,6 +1850,12 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
                 setProposedContent(data.proposedContent);
                 setDisplayContent(data.displayContent || formatContentForDisplay(data.proposedContent));
                 setIsContentSaved(false); // New content needs approval
+                pendo.track('section_content_generated', {
+                    portfolioId: portfolio.id,
+                    sectionId: currentSection.id,
+                    sectionType: currentSection.type,
+                    generationMethod: 'auto_generate'
+                });
 
                 setChatMessages(prev => [...prev, {
                     role: 'ai',
@@ -1853,6 +1907,13 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
             if (response.ok) {
                 setSavedSections(prev => ({ ...prev, [currentSection.id]: true }));
                 setIsContentSaved(true); // Mark content as saved
+                pendo.track('section_content_approved', {
+                    portfolioId: portfolio.id,
+                    sectionId: currentSection.id,
+                    sectionType: currentSection.type,
+                    completedSectionsCount: Object.keys(savedSections).filter(k => savedSections[k]).length + 1,
+                    totalSectionsCount: sections.length
+                });
 
                 setChatMessages(prev => [...prev, {
                     role: 'ai',
@@ -1954,6 +2015,14 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
         try {
             const data = await uploadWizardDocument(portfolio.id, file);
             setDocuments(data.documents || []);
+            pendo.track('document_uploaded_wizard', {
+                portfolioId: portfolio.id,
+                fileName: file.name,
+                fileType: file.type || 'unknown',
+                fileSizeBytes: file.size,
+                wizardStep: 4,
+                totalDocumentCount: Array.isArray(data.documents) ? data.documents.length : 0
+            });
             setChatMessages(prev => [...prev, {
                 role: 'ai',
                 content: `I extracted **${file.name}** and I’ll use it where it helps, especially for sections like About, Experience, Projects, Skills, Services, Education, and Achievements.`,
@@ -1972,6 +2041,11 @@ function StepContent({ portfolio, wizardData, onNext, onBack, refreshPortfolio }
         setIsFinishing(true);
         try {
             await Promise.resolve(onNext());
+            pendo.track('wizard_content_step_completed', {
+                portfolioId: portfolio.id,
+                totalSectionsCount: sections.length,
+                sectionTypes: sections.map(s => s.type).join(',')
+            });
         } finally {
             setIsFinishing(false);
         }
@@ -2414,6 +2488,17 @@ function StepFeatures({ wizardData, onNext, onBack }: {
                 aiManagerFinalized: hasAiManager ? aiManagerFinalized : false,
                 aiCapabilities: capabilityPayload,
             }));
+            const enabledCaps = Object.entries(capabilityPayload)
+                .filter(([, v]) => v.enabled)
+                .map(([k]) => k);
+            pendo.track('ai_manager_configured', {
+                hasAiManager,
+                aiManagerName: hasAiManager ? aiManagerName.trim() : '',
+                aiManagerPersonality: hasAiManager ? aiManagerPersonality : '',
+                aiManagerFinalized: hasAiManager ? aiManagerFinalized : false,
+                enabledCapabilities: enabledCaps.join(','),
+                enabledCapabilitiesCount: enabledCaps.length
+            });
         } finally {
             setIsContinuing(false);
         }
@@ -2690,6 +2775,10 @@ function StepTheme({ wizardData, onNext, onBack }: {
             setIsContinuing(true);
             try {
                 await Promise.resolve(onNext(selectedTheme, { name: scheme.name, colors: scheme.colors }));
+                pendo.track('theme_selected', {
+                    theme: selectedTheme,
+                    colorScheme: scheme.name
+                });
             } finally {
                 setIsContinuing(false);
             }
@@ -2908,6 +2997,17 @@ function StepPublish({ portfolio, wizardData, onBack }: {
 
             if (response.ok) {
                 const data = await response.json();
+                pendo.track('portfolio_published', {
+                    portfolioId: portfolio.id,
+                    slug,
+                    hasAiManager: Boolean(
+                        wizardData?.hasAiManager ||
+                        portfolio.has_ai_manager ||
+                        portfolio.ai_manager_finalized ||
+                        portfolio.ai_manager_name
+                    ),
+                    isRepublish: isPublished
+                });
                 router.push('/user/dashboard');
             } else {
                 const error = await response.json();

@@ -218,6 +218,11 @@ function AssistantChatPageContent() {
             const newChat = result.chat as AssistantChat;
             setChats((prev) => [newChat, ...prev]);
             setSelectedChat(newChat);
+            pendo.track('assistant_chat_started', {
+                chatId: newChat.id,
+                contextType,
+                portfolioId: selectedPortfolioId
+            });
             setMessages([result.initialMessage]);
             setInput('');
             setView('chat');
@@ -249,6 +254,13 @@ function AssistantChatPageContent() {
             const data = await apiFetch(`/assistant/chats/${selectedChat.id}/messages`, {
                 method: 'POST',
                 body: JSON.stringify({ message: messageText })
+            });
+
+            pendo.track('assistant_message_sent', {
+                chatId: selectedChat.id,
+                contextType: selectedChat.context_type,
+                messageLength: messageText.length,
+                portfolioId: selectedChat.portfolio_id
             });
 
             setMessages((prev) => [
@@ -285,6 +297,13 @@ function AssistantChatPageContent() {
             const data = await apiFetch(`/assistant/chats/${selectedChat.id}/approve`, {
                 method: 'POST',
                 body: JSON.stringify({ proposalMessageId })
+            });
+
+            pendo.track('assistant_proposal_approved', {
+                chatId: selectedChat.id,
+                proposalMessageId,
+                contextType: selectedChat.context_type,
+                portfolioId: selectedChat.portfolio_id
             });
 
             setMessages((prev) => {
@@ -335,6 +354,14 @@ function AssistantChatPageContent() {
 
         try {
             const data = await uploadPortfolioDocument(selectedChat.portfolio_id, file);
+            pendo.track('assistant_document_uploaded', {
+                chatId: selectedChat.id,
+                portfolioId: selectedChat.portfolio_id,
+                fileName: file.name,
+                fileType: file.type || 'unknown',
+                fileSizeBytes: file.size,
+                totalDocumentCount: Array.isArray(data.documents) ? data.documents.length : 0
+            });
             const documentCount = Array.isArray(data.documents) ? data.documents.length : null;
             const statusMessage = documentCount
                 ? `Uploaded ${file.name}. ${documentCount} supporting document${documentCount === 1 ? '' : 's'} now available for portfolio edits.`

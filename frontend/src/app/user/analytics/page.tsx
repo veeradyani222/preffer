@@ -355,6 +355,11 @@ function PortfolioAnalyticsSection({ portfolio }: { portfolio: PortfolioStats })
         try {
             const data = await apiFetch(`/analytics/insights?portfolioId=${portfolio.portfolio_id}`);
             setInsights(data.insights || null);
+            pendo.track('insights_refreshed', {
+                portfolioId: portfolio.portfolio_id,
+                portfolioName: portfolio.name,
+                hasAiManager: portfolio.has_ai_manager
+            });
         } catch (err) {
         } finally {
             setInsightsLoading(false);

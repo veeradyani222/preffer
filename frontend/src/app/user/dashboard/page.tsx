@@ -110,7 +110,13 @@ export default function DashboardPage() {
         if (!confirm('Are you sure you want to delete this portfolio?')) return;
 
         try {
+            const deletedPortfolio = portfolios.find(p => p.id === id);
             await apiFetch(`/portfolio/${id}`, { method: 'DELETE' });
+            pendo.track('portfolio_deleted', {
+                portfolioId: id,
+                portfolioName: deletedPortfolio?.name || '',
+                portfolioStatus: deletedPortfolio?.status || ''
+            });
             setPortfolios(portfolios.filter(p => p.id !== id));
             setUnfinished(prev => ({
                 ...prev,

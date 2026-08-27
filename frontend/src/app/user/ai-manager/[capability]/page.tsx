@@ -175,9 +175,17 @@ export default function CapabilityDetailPage() {
 
     const updateStatus = async (recordId: string, status: string) => {
         if (!selectedPortfolioId) return;
+        const previousStatus = records.find(r => r.id === recordId)?.status || 'new';
         await apiFetch(`/portfolio/${selectedPortfolioId}/ai-capabilities/${capability}/records/${recordId}/status`, {
             method: 'PATCH',
             body: JSON.stringify({ status }),
+        });
+        pendo.track('capability_record_status_updated', {
+            portfolioId: selectedPortfolioId,
+            capabilityKey: capability,
+            recordId,
+            previousStatus,
+            newStatus: status
         });
         setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, status } : r)));
     };

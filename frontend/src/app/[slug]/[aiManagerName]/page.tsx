@@ -149,6 +149,14 @@ export default function AiManagerPage() {
                 setSessionId(nextSessionId);
                 sessionStorage.setItem(`ai_session:${slug}:${aiManagerName}`, nextSessionId);
             }
+            pendo.track('visitor_chat_message_sent', {
+                portfolioSlug: slug,
+                aiManagerName,
+                messageLength: userMessage.length,
+                sessionId: nextSessionId || '',
+                isFirstMessage: messages.length === 0,
+                messageIndex: updatedMessages.filter(m => m.role === 'user').length
+            });
             setMessages([...updatedMessages, { role: 'assistant', content: data.reply || 'I can help with that.' }]);
         } catch {
             setMessages([
